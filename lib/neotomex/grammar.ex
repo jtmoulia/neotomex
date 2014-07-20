@@ -184,9 +184,8 @@ defmodule Neotomex.Grammar do
   @type expr_trans :: {expression, transform}
 
 
-  @typep match :: [match]   # sequence or priority
-                | match     # the rest
-                | String.t  # terminal
+  # A match is the result of the Neotomex PEG grammar matching an expression
+  @typep match :: {expr_trans, [match] | match | String.t}
 
   # A grammar contains a root label, and a map of rules keyed by nonterminal label
   @type grammar :: %{root: nonterminal | false,
@@ -224,48 +223,107 @@ defmodule Neotomex.Grammar do
 
 
   @doc """
-  Parse the provided input using the grammar.
+  Parse the `input` using the `grammar` by matching a parse tree and
+  then applying all transforms.
+
+  ## Examples
+
+      iex> grammar = new(:root, %{root: {{:terminal, ~r/^[0-9]+/},
+      ...>                               &String.to_integer/1}})
+      iex> parse(grammar, "1")
+      {:ok, 1, ""}
+      iex> parse(grammar, "100")
+      {:ok, 100, ""}
+
   """
-  @spec parse(binary, grammar) :: {:ok, {expression, transform}, binary}
+  @spec parse(grammar, binary) :: {:ok, any, binary} | :mismatch | {:error, term}
+  def parse(grammar, input) do
+    case match(grammar, input) do
+      {:ok, match, rest} ->
+        {:ok, transform_match(match), rest}
+      otherwise ->
+        otherwise
+    end
+  end
+
+
+  @doc """
+  Match the `input` using the grammar.
+
+  NB: Not tail call optimized. Possible?
+  """
+  @spec match(grammar, binary) :: {:ok, {expression, transform}, binary}
                                 | :mismatch | {:error, term}
-  def parse(input, %{:root => root, :definitions => definitions} = grammar)
+  def match(%{:root => root, :definitions => definitions} = grammar, input)
       when is_binary(input) do
-    parse(input, grammar, definitions[root])
+    match(definitions[root], grammar, input)
   end
 
-  defp parse(input, grammar, {identifier, _} = expr) when is_atom(identifier) do
+
+  @doc """
+  Transform the parse tree returned by match by applying the the
+  expressions' transform functions via depth first recursion.
+
+  NB: Not tail call optimized. Possible? Pack rat?
+
+  ## Examples
+
+      iex> transform_match({{nil, fn x -> String.to_integer(x) end},
+      ...>                  {{nil, nil}, "1"}})
+      1
+      iex> transform_match({{nil, fn [x, y] -> x + y end},
+      ...>                  [{{nil, nil}, 1}, {{nil, nil}, 1}]})
+      2
+  """
+  @spec transform_match(match) :: any
+  def transform_match({{_, nil}, match}) do
+    match
+  end
+  def transform_match({{_, transform_fn}, matches}) when is_list(matches) do
+    transform_fn.(for match <- matches, do: transform_match(match))
+  end
+  def transform_match({{_, transform_fn}, match}) when is_binary(match) do
+    transform_fn.(match)
+  end
+  def transform_match({{_, transform_fn}, match}) do
+    transform_fn.(transform_match(match))
+  end
+
+
+  ## Private Functions
+
+  defp match({identifier, _} = expr, grammar, input) when is_atom(identifier) do
     # If no transform is provided, default it to `nil`
-    parse(input, grammar, {expr, nil})
+    match({expr, nil}, grammar, input)
   end
 
-  defp parse(_, _, nil),        do: {:error, :no_root}
-  # defp parse("", _, _),         do: {:ok, [], ""}
-  defp parse(input, _, :empty), do: {:ok, nil, input}
+  defp match(nil, _, _),        do: {:error, :no_root}
+  defp match(:empty, _, input), do: {:ok, nil, input}
 
   # Terminal nodes can be characters [integer], strings, or regexs
-  defp parse(<<char, rest :: utf8>>, _, {{:terminal, char}, _} = expr_trans)
+  defp match({{:terminal, char}, _} = expr_trans, _, <<char, rest :: utf8>>)
       when is_integer(char) do
-    return(rest, expr_trans, char)
+    {:ok, {expr_trans, char}, rest}
   end
-  defp parse(_, _, {{:terminal, char}, _}) when is_integer(char) do
+  defp match({{:terminal, char}, _}, _, _) when is_integer(char) do
     :mismatch
   end
-  defp parse(input, _, {{:terminal, terminal}, _} = expr_trans)
+  defp match({{:terminal, terminal}, _} = expr_trans, _, input)
       when is_binary(terminal) do
     case String.split_at(input, String.length(terminal)) do
       {^terminal, rest} ->
-        return(rest, expr_trans, terminal)
+        {:ok, {expr_trans, terminal}, rest}
       {_, _} ->
         :mismatch
     end
   end
-  defp parse(input, _, {{:terminal, terminal}, _} = expr_trans) do
+  defp match({{:terminal, terminal}, _} = expr_trans, _, input) do
     case Regex.run(terminal, input) do
       [""] ->
         # Make sure it's not just an empty match
         case Regex.match?(terminal, input) do
           true ->
-            return(input, expr_trans, "")
+            {:ok, {expr_trans, ""}, input}
           false ->
             :mismatch
         end
@@ -274,145 +332,117 @@ defmodule Neotomex.Grammar do
       [match] ->
         # Two parts are necessary since the first is being trimmed away
         {^match, rest} = String.split_at(input, String.length(match))
-        return(rest, expr_trans, match)
+        {:ok, {expr_trans, match}, rest}
     end
   end
 
-  defp parse(input, %{:definitions => definitions} = grammar,
-             {{:nonterminal, nonterminal}, _} = expr_trans) do
-    transform_parse(case parse(input, grammar, definitions[nonterminal]) do
-                      {:ok, match, input} ->
-                        return(input, expr_trans, match)
-                      otherwise ->
-                        otherwise
-                    end, expr_trans)
-  end
-
-  defp parse(input, grammar, {{:sequence, expressions}, _} = expr_trans) do
-    IO.puts "whee"
-    IO.inspect parse_sequence(input, grammar, expressions)
-    IO.inspect expr_trans
-    transform_parse(parse_sequence(input, grammar, expressions), expr_trans)
-  end
-
-  defp parse(input, grammar, {{:priority, expressions}, _} = expr_trans) do
-    transform_parse(parse_priorities(input, grammar, expressions), expr_trans)
-  end
-
-  defp parse(input, grammar, {{:zero_or_more, expression}, _} = expr_trans) do
-   transform_parse(parse_zero_or_more(input, grammar, expression), expr_trans)
-  end
-
-  defp parse(input, grammar, {{:one_or_more, expression}, _} = expr_trans) do
-    transform_parse(case parse(input, grammar, expression) do
-                      {:ok, match, input} ->
-                        parse_zero_or_more(input, grammar, expression, [match])
-                      otherwise ->
-                        otherwise
-                    end, expr_trans)
-  end
-
-  defp parse(input, grammar, {{:zero_or_one, expression}, _} = expr_trans) do
-    case parse(input, grammar, expression) do
-      :mismatch ->
-        return(input, expr_trans, nil)
+  defp match({{:nonterminal, nonterminal}, _} = expr_trans,
+             %{:definitions => definitions} = grammar, input) do
+    case match(definitions[nonterminal], grammar, input) do
+      {:ok, match, rest} ->
+        {:ok, {expr_trans, match}, rest}
       otherwise ->
         otherwise
     end
   end
 
-  defp parse(input, grammar, {{:and, expression}, _} = expr_trans) do
-    transform_parse(case parse(input, grammar, expression) do
-                      {:ok, _, _} ->
-                        return(input, expr_trans, expression)
-                      otherwise ->
-                        otherwise
-                    end, expr_trans)
+  defp match({{:sequence, _}, _} = expr_trans, grammar, input) do
+    match_sequence(expr_trans, grammar, input)
   end
 
-  defp parse(input, grammar, {{:not, expression}, _} = expr_trans) do
-    transform_parse(case parse(input, grammar, expression) do
-                      {:ok, _, _} ->
-                        :mismatch
-                      :mismatch ->
-                        return(input, expr_trans, expression)
-                      {:error, reason} ->
-                        {:error, reason}
-                    end, expr_trans)
+  defp match({{:priority, _}, _} = expr_trans, grammar, input) do
+    match_priorities(expr_trans, grammar, input)
+  end
+
+  defp match({{:zero_or_more, _}, _} = expr_trans, grammar, input) do
+   match_zero_or_more(expr_trans, grammar, input)
+  end
+
+  defp match({{:one_or_more, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
+      {:ok, match, input} ->
+        match_zero_or_more(expr_trans, grammar, input, [match])
+      otherwise ->
+        otherwise
+    end
+  end
+
+  defp match({{:zero_or_one, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
+      :mismatch ->
+        {:ok, {expr_trans, nil}, input}
+      otherwise ->
+        otherwise
+    end
+  end
+
+  defp match({{:and, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
+      {:ok, _, _} ->
+        {:ok, {expr_trans, nil}, input}
+      otherwise ->
+        otherwise
+    end
+  end
+
+  defp match({{:not, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
+      {:ok, _, _} ->
+        :mismatch
+      :mismatch ->
+        {:ok, {expr_trans, nil}, input}
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   # Helper for parsing a sequence of expressions
-  defp parse_sequence(input, grammar, expressions, acc \\ [])
-  defp parse_sequence(input, _, [], acc) do
-    {:ok, Enum.reverse(acc), input}
+  defp match_sequence({{:sequence, expressions}, _} = expr_trans, grammar, input) do
+    match_sequence(expr_trans, grammar, input, expressions, [])
   end
-  defp parse_sequence(input, grammar, [expression | expressions], acc) do
-    case parse(input, grammar, expression) do
-      {:ok, matches, input} ->
-        parse_sequence(input, grammar, expressions, [matches | acc])
+
+  defp match_sequence({{:sequence, _}, _} = expr_trans, _, input, [], acc) do
+    {:ok, {expr_trans, Enum.reverse(acc)}, input}
+  end
+  defp match_sequence(expr_trans, grammar, input, [expression | expressions], acc) do
+    case match(expression, grammar, input) do
+      {:ok, match, input} ->
+        match_sequence(expr_trans, grammar, input, expressions, [match | acc])
       otherwise ->
         otherwise
     end
   end
 
+
   # Helper for parsing a priority list of expressions
-  defp parse_priorities(_, _, []) do
-    :mismatch
+  defp match_priorities({{:priority, expressions}, _} = expr_trans, grammar, input) do
+    match_priorities(expr_trans, grammar, input, expressions)
   end
 
-  defp parse_priorities(input, grammar, [expression | expressions]) do
-    case parse(input, grammar, expression) do
-      {:ok, matches, input} ->
-        {:ok, matches, input}
-      :mismatch ->
-        parse_priorities(input, grammar, expressions)
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  # Helper for zero or more (* suffix)
-  defp parse_zero_or_more(input, grammar, expression, acc \\ [])
-  defp parse_zero_or_more(input, grammar, expression, acc) do
-    case parse(input, grammar, expression) do
+  defp match_priorities(_, _, _, []), do: :mismatch
+  defp match_priorities(expr_trans, grammar, input, [expression | expressions]) do
+    case match(expression, grammar, input) do
       {:ok, match, input} ->
-        parse_zero_or_more(input, grammar, expression, [match | acc])
+        {:ok, {expr_trans, match}, input}
       :mismatch ->
-        {:ok, {expression, Enum.reverse(acc)}, input}
+        match_priorities(expr_trans, grammar, input, expressions)
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  # Compose an `ok` return by running the transform function on the match -- kills
-  # tail recursion :/
-  @spec return(binary, expr_trans, match) :: {:ok, {expression, match}, binary}
-  defp return(rest, {expression, nil}, match) do
-    {:ok, {expression, match}, rest}
-  end
-  defp return(rest, {expression, transform}, match) do
-    # If there were multiple matches, apply them to the transform as args
-    case (if is_list(match) do
-            apply(transform, match)
-          else
-            transform.(match)
-          end) do
-      {:ok, transformed} ->
-        {:ok, {expression, transformed}, rest}
+
+  # Helper for zero or more (* suffix). Also used for one or more.
+  defp match_zero_or_more(expr_trans, grammar, input, acc \\ [])
+  defp match_zero_or_more({{_, expression}, _} = expr_trans, grammar, input, acc) do
+    case match(expression, grammar, input) do
+      {:ok, match, input} ->
+        match_zero_or_more(expr_trans, grammar, input, [match | acc])
+      :mismatch ->
+        {:ok, {expr_trans, Enum.reverse(acc)}, input}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  # Helper function for applying transforms to parse return values.
-  defp transform_parse({:ok, {_, match}, rest}, expr_trans) do
-    #IO.puts "calling"
-    #IO.inspect match
-    #IO.inspect expr_trans
-
-    return(rest, expr_trans, match)
-  end
-  defp transform_parse(otherwise, _) do
-    IO.puts "otherwise"
-    IO.inspect otherwise
-    otherwise
-  end
 end

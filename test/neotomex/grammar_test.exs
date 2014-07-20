@@ -1,119 +1,113 @@
 defmodule Neotomex.GrammarTest do
   use ExUnit.Case
   import Neotomex.Grammar  # using new/1,2,3 and parse/2,3
+  doctest Neotomex.Grammar
 
-  test "parse terminal" do
+  test "parse" do
+      grammar = new(:root, %{root: {{:terminal, ~r/^[0-9]+/}, &String.to_integer/1}})
+      assert parse(grammar, "1") == {:ok, 1, ""}
+      assert parse(grammar, "100") == {:ok, 100, ""}
+  end
+
+  test "match terminal" do
     expression = {:terminal, ~r/^.*/}
-    grammar = new(:root, %{root: {expression, nil}})
-    assert parse("", grammar) == {:ok, {expression, ""}, ""}
-    assert parse("test", grammar) == {:ok, {expression, "test"}, ""}
+    grammar = new(:root, %{root: expression})
+    assert match(grammar, "") == {:ok, {{expression, nil}, ""}, ""}
+    assert match(grammar, "test") == {:ok, {{expression, nil}, "test"}, ""}
 
     expression = {:terminal, ~r/^a/}
-    grammar = new(:root, %{root: {expression, nil}})
-    assert parse("", grammar) == :mismatch
-    assert parse("abc", grammar) == {:ok, {expression, "a"}, "bc"}
+    grammar = new(:root, %{root: expression})
+    assert match(grammar, "") == :mismatch
+    assert match(grammar, "abc") == {:ok, {{expression, nil}, "a"}, "bc"}
 
     expression1 = {:nonterminal, :non}
     expression2 = {:terminal, ~r/^.*/}
-    grammar = new(:root, %{root: {expression1, nil},
-                           non: {expression2, nil}})
-    assert parse("", grammar) == {:ok, {expression1, {expression2, ""}}, ""}
-    assert parse("test", grammar) == {:ok, {expression1, {expression2, "test"}}, ""}
+    grammar = new(:root, %{root: expression1, non: expression2})
+    assert match(grammar, "") == {:ok, {{{:nonterminal, :non}, nil},
+                                        {{{:terminal, ~r/^.*/}, nil}, ""}}, ""}
+    assert match(grammar, "test") == {:ok, {{{:nonterminal, :non}, nil},
+                                            {{{:terminal, ~r/^.*/}, nil}, "test"}}, ""}
   end
 
-  test "parse sequence" do
-    expression = {{:sequence, [{{:terminal, ~r/^a/}, nil},
-                               {{:terminal, ~r/^b/}, nil}]}, nil}
+  test "match sequence" do
+    expression = {:sequence, [{:terminal, ~r/^a/}, {:terminal, ~r/^b/}]}
     grammar = new(:root, %{root: expression})
-    assert parse("", grammar) == :mismatch
-    assert parse("a", grammar) == :mismatch
-    assert parse("ab", grammar) == {:ok, [{{:terminal, ~r/^a/}, "a"},
-                                          {{:terminal, ~r/^b/}, "b"}], ""}
-    assert parse("aab", grammar) == :mismatch
+    assert match(grammar, "") == :mismatch
+    assert match(grammar, "a") == :mismatch
+    assert match(grammar, "ab") ==
+      {:ok, {{{:sequence, [terminal: ~r/^a/, terminal: ~r/^b/]}, nil},
+             [{{{:terminal, ~r/^a/}, nil}, "a"},
+              {{{:terminal, ~r/^b/}, nil}, "b"}]}, ""}
+    assert match(grammar, "aab") == :mismatch
   end
 
-  test "parse priority" do
-    expression = {{:priority, [{{:terminal, ~r/^a/}, nil},
-                               {{:terminal, ~r/^b/}, nil}]}, nil}
+  test "match priority" do
+    expression = {:priority, [{:terminal, ~r/^a/}, {:terminal, ~r/^b/}]}
     grammar = new(:root, %{root: expression})
-    assert parse("", grammar) == :mismatch
-    assert parse("a", grammar) ==
-      {:ok, {{:priority, [{{:terminal, ~r/^a/}, nil},
-                          {{:terminal, ~r/^b/}, nil}]}, "a"}, ""}
-    assert parse("ab", grammar) ==
-      {:ok, {{:priority, [{{:terminal, ~r/^a/}, nil},
-                          {{:terminal, ~r/^b/}, nil}]}, "a"}, "b"}
-    assert parse("ba", grammar) ==
-      {:ok, {{:priority, [{{:terminal, ~r/^a/}, nil},
-                          {{:terminal, ~r/^b/}, nil}]}, "b"}, "a"}
+    assert match(grammar, "") == :mismatch
+    assert match(grammar, "a") ==
+      {:ok, {{{:priority, [terminal: ~r/^a/, terminal: ~r/^b/]}, nil},
+             {{{:terminal, ~r/^a/}, nil}, "a"}}, ""}
+    assert match(grammar, "ab") ==
+      {:ok, {{{:priority, [terminal: ~r/^a/, terminal: ~r/^b/]}, nil},
+             {{{:terminal, ~r/^a/}, nil}, "a"}}, "b"}
+    assert match(grammar, "ba") ==
+      {:ok, {{{:priority, [terminal: ~r/^a/, terminal: ~r/^b/]}, nil},
+             {{{:terminal, ~r/^b/}, nil}, "b"}}, "a"}
   end
 
-  test "parse zero or more" do
-    grammar = new(:root, %{root: {{:zero_or_more,
-                                   {{:terminal, ~r/^a/}, nil}}, nil}})
-    assert parse("", grammar) == {:ok, {{:zero_or_more,
-                                         {{:terminal, ~r/^a/}, nil}}, []}, ""}
-    assert parse("ab", grammar) == {:ok, {{:zero_or_more,
-                                           {{:terminal, ~r/^a/}, nil}},
-                                          [{{:terminal, ~r/^a/}, "a"}]}, "b"}
-    assert parse("aab", grammar) == {:ok,
-                                     {{:zero_or_more,
-                                       {{:terminal, ~r/^a/}, nil}},
-                                      [{{:terminal, ~r/^a/}, "a"},
-                                       {{:terminal, ~r/^a/}, "a"}]}, "b"}
+  test "match zero or more" do
+    grammar = new(:root, %{root: {:zero_or_more, {:terminal, ~r/^a/}}})
+    assert match(grammar, "") ==
+      {:ok, {{{:zero_or_more, {:terminal, ~r/^a/}}, nil}, []}, ""}
+    assert match(grammar, "ab") ==
+      {:ok, {{{:zero_or_more, {:terminal, ~r/^a/}}, nil},
+             [{{{:terminal, ~r/^a/}, nil}, "a"}]}, "b"}
+    assert match(grammar, "aab") ==
+      {:ok, {{{:zero_or_more, {:terminal, ~r/^a/}}, nil},
+             [{{{:terminal, ~r/^a/}, nil}, "a"},
+              {{{:terminal, ~r/^a/}, nil}, "a"}]}, "b"}
   end
 
-  test "parse one or more" do
-    grammar = new(:root, %{root: {{:one_or_more,
-                                   {{:terminal, ~r/^a/}, nil}}, nil}})
-    assert parse("", grammar) == :mismatch
-    assert parse("abc", grammar) == {:ok, {{:one_or_more, {{:terminal, ~r/^a/}, nil}},
-                                           [{{:terminal, ~r/^a/}, "a"}]}, "bc"}
-    assert parse("aabc", grammar) == {:ok, {{:one_or_more, {{:terminal, ~r/^a/}, nil}},
-                                            [{{:terminal, ~r/^a/}, "a"},
-                                             {{:terminal, ~r/^a/}, "a"}]}, "bc"}
+  test "match one or more" do
+    grammar = new(:root, %{root: {:one_or_more, {:terminal, ~r/^a/}}})
+    assert match(grammar, "") == :mismatch
+    assert match(grammar, "abc") == {:ok, {{{:one_or_more, {:terminal, ~r/^a/}}, nil},
+                                           [{{{:terminal, ~r/^a/}, nil}, "a"}]}, "bc"}
+    assert match(grammar, "aabc") == {:ok, {{{:one_or_more, {:terminal, ~r/^a/}}, nil},
+                                            [{{{:terminal, ~r/^a/}, nil}, "a"},
+                                             {{{:terminal, ~r/^a/}, nil}, "a"}]}, "bc"}
   end
 
-  test "parse zero or one" do
-    grammar = new(:root, %{root: {{:zero_or_more,
-                                   {{:terminal, ~r/^a/}, nil}}, nil}})
-    assert parse("", grammar) == {:ok, {{:zero_or_more,
-                                         {{:terminal, ~r/^a/}, nil}}, []}, ""}
-    assert parse("abc", grammar) == {:ok, {{:zero_or_more, {{:terminal, ~r/^a/}, nil}},
-                                           [{{:terminal, ~r/^a/}, "a"}]}, "bc"}
-    assert parse("aabc", grammar) == {:ok, {{:zero_or_more, {{:terminal, ~r/^a/}, nil}},
-                                            [{{:terminal, ~r/^a/}, "a"},
-                                             {{:terminal, ~r/^a/}, "a"}]}, "bc"}
+  test "match zero or one" do
+    grammar = new(:root, %{root: {:zero_or_more, {:terminal, ~r/^a/}}})
+    assert match(grammar, "") == {:ok, {{{:zero_or_more,
+                                          {:terminal, ~r/^a/}}, nil}, []}, ""}
+    assert match(grammar, "abc") == {:ok, {{{:zero_or_more, {:terminal, ~r/^a/}}, nil},
+                                           [{{{:terminal, ~r/^a/}, nil}, "a"}]}, "bc"}
+    assert match(grammar, "aabc") == {:ok, {{{:zero_or_more, {:terminal, ~r/^a/}}, nil},
+                                            [{{{:terminal, ~r/^a/}, nil}, "a"},
+                                             {{{:terminal, ~r/^a/}, nil}, "a"}]}, "bc"}
   end
 
-  test "parse and" do
-    grammar = new(:root, %{root: {{:and, {{:terminal, ~r/^a/}, nil}}, nil}})
-    assert parse("a", grammar) == {:ok, {{:and, {{:terminal, ~r/^a/}, nil}},
-                                         {{:terminal, ~r/^a/}, nil}}, "a"}
-    assert parse("b", grammar) == :mismatch
+  test "match and" do
+    grammar = new(:root, %{root: {:and, {:terminal, ~r/^a/}}})
+    assert match(grammar, "a") == {:ok, {{{:and, {:terminal, ~r/^a/}}, nil},
+                                         nil}, "a"}
+    assert match(grammar, "b") == :mismatch
   end
 
-  test "parse not" do
-    grammar = new(:root, %{root: {{:not, {{:terminal, ~r/^a/}, nil}}, nil}})
-    assert parse("b", grammar) == {:ok, {{:not, {{:terminal, ~r/^a/}, nil}},
-                                         {{:terminal, ~r/^a/}, nil}}, "b"}
-    assert parse("a", grammar) == :mismatch
+  test "match not" do
+    grammar = new(:root, %{root: {:not, {:terminal, ~r/^a/}}})
+    assert match(grammar, "b") == {:ok, {{{:not, {:terminal, ~r/^a/}}, nil}, nil}, "b"}
+    assert match(grammar, "a") == :mismatch
   end
 
-  test "parse transforms" do
-    # Parse a number, and transform it from a string to an integer
-    int_transform = fn(number) -> {:ok, String.to_integer(number)} end
-    int_expr = {:terminal, ~r/[0-9]+/}
-    grammar = new(:root, %{root: {int_expr, int_transform}})
-    assert parse("1", grammar) == {:ok, {{:terminal, ~r/[0-9]+/}, 1}, ""}
+  test "transform" do
+    assert transform_match({{nil, fn x -> String.to_integer(x) end},
+                            {{nil, nil}, "1"}}) == 1
 
-    # Parse a simple addition
-    add_transform = fn(x, _, y) -> {:ok, x + y} end
-    grammar = new(:root, %{root: {{:sequence, [{:nonterminal, :integer},
-                                               {:terminal, "+"},
-                                               {:nonterminal, :integer}]},
-                                   add_transform},
-                           integer: {int_expr, int_transform}})
-    assert parse("1+1", grammar) == :ok
+    match = {{nil, fn [x, y] -> x + y end}, [{{nil, nil}, 1}, {{nil, nil}, 1}]}
+    assert transform_match(match) == 2
   end
 end
