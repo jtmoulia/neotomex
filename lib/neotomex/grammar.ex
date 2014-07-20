@@ -1,4 +1,65 @@
 defmodule Neotomex.Grammar do
+  @moduledoc """
+  # Neotomex.Grammar
+
+  A Neotomex PEG grammar specifies a directed graph of definitons.
+  It consists of:
+
+  - A set of definitions, where each definition consists of an
+    `identifier` and an `expression`.
+    e.g. `Definition <- Identifier '<-' Expression`
+  - The root definition's identifier. This root definition will be
+    used as the entry point for matching.
+  - A transform function can be associated with a Neotomex expression.
+    They are applied after the parse
+
+  The definition data types (see the definition/0 typespec below) are
+  verbose and machine readable as opposed to human readable. Typical
+  usage will be to compile a grammar from a more machine readable
+  format, bootstrapping with Neotomex grammars as necessary.
+
+  Parsing consists of first using the grammar to `match` a valid
+  parse tree, and then applying a `transform` node by node to
+  this parse tree.
+
+  ## Match
+
+  A grammar consists of definitions which are labeled by an identifier
+  and consist of an expression. An expression can be a
+
+  - `terminal`: references a char, string, or regex. It successfully
+    matches when it's reference appears at the beginning of the input.
+  - `nonterminal`: the identifier of a definition. It matches if the
+    identified definition matches.
+  - `sequence`: an ordered list of expressions. It succesfully matches
+    by folding the expressions against the input.
+  - `priority`: an ordered list of expressions. It matches using the
+    first successful match of the list.
+  - `zero_or_more`: matches when its subexpression greedily matches zero or
+    more times.
+  - `one_or_more`: matches when its subexpression greedily matches one or
+    more times.
+  - `zero_or_one`: matches when its subexpression greedily matches zero or
+    one times.
+  - `and`: matches when its subexpression matches. Consumes no input.
+  - `not`: matches when its subexpression does not match. Consumes no input.
+
+  A grammar's definitions come together to form a conditional directed graph.
+  Matching starts at the root node and performs a depth first search for the
+  first successful route through the tree. This represents the valid parse
+  tree for the grammar and input.
+
+  ## Transform
+
+  A transform is a function that modifies the match for an expression. This
+  can be used to evaluate the parse tree.
+
+  The default transform is the identity function.
+
+  Transforms must return {:ok, transformed} when successful, where transformed
+  is the transformed match.
+  """
+
   # Specification of PEG, in PEG:
 
   # Hierarchical syntax
@@ -41,27 +102,75 @@ defmodule Neotomex.Grammar do
   # EndOfLine  <- '\r\n' / '\n' / '\r'
   # EndOfFile  <- !.
 
-  # @peg_grammar = %{:root => :grammar,
-  #                  :rules =>
-  #                  %{:grammar =>
-  #                    {:sequence, [:spacing, {:+, definition}, :end_of_file]},
-  #                    :definition =>
-  #                    {:sequence, [:identifier, :LEFT_ARROW, :expression]},
-  #                    :expression =>
-  #                    {:sequence, [{:non_terminal, :sequence},
-  #                                 {:*, {:sequence, [{:non_terminal, :SLASH},
-  #                                                   :sequence]}}]},
-  #                    :prefix => {:sequence, [{:priority, [:AND, :NOT]},
-  #                                            {:non_terminal, :suffix}}}]}}}
+  # PEG parser grammar defined in Neotomex internal PEG format
+  @peg_root        :grammar
+  # @peg_definitions
+  # %{:grammar =>
+  #   # Hierarchical syntax
+  #   {:sequence, [{:nonterminal, :spacing},
+  #                {:one_or_more, {:nonterminal, :definition}},
+  #                {:nonterminal, :EOF}]},
+  #   :definition =>
+  #   {:sequence, [{:nonterminal, :identifier},
+  #                :LEFTARROW, :expression]},
+  #   :expression =>
+  #   {:sequence, [{:non_terminal, :seq},
+  #                {:zero_or_more, {:sequence,
+  #                                 [{:nonterminal, :SLASH},
+  #                                  {:nonterminal, :seq}]}}]},
+  #   :sequence => {:zero_or_more, {:nonterminal, :prefix}},
+  #   :prefix => {:sequence, [{:priority, [:AND, :NOT]}, {:nonterminal, :suffix}]},
+  #   :suffix =>
+  #   {:sequence, [{:nonterminal, :primary},
+  #                {:zero_or_one, {:priority, [{:nonterminal, :QUESTION},
+  #                                            {:nonterminal, :STAR},
+  #                                            {:nonterminal, :PLUS}]}}]},
+  #   :primary =>
+  #   {:priority, [{:sequence, [{:nonterminal, :identifier},
+  #                             {:not, {:nonterminal, :LEFTARROW}}]},
+  #                {:sequence, [{:nonterminal, :OPEN},
+  #                             {:nonterminal, :expression},
+  #                             {:nonterminal, :CLOSE}]},
+  #                {:nonterminal, :literal},
+  #                {:nonterminal, :class},
+  #                {:nonterminal, :DOT}]},
+
+  #   # Lexical syntax
+  #   :identifier =>
+  #   {:sequence, [{:nonterminal, :ident_start},
+  #                {:zero_or_more, {:nonterminal, :ident_cont}},
+  #                {:nonterminal, :SPACING}]},
+  #   :ident_start => {:terminal, ~r/^[a-zA-Z_]/},
+  #   :ident_cont => {:priority, [{:nonterminal, :ident_start},
+  #                               {:terminal, ~r/^[0-9]/}]},
+  #   :literal =>
+  #   {:priority, [{:sequence, [{:terminal, 39},
+  #                             {:zero_or_more,
+  #                              {:sequence, [{:not, {:terminal, 39}},
+  #                                           {:nonterminal, :char}]}},
+  #                             {:terminal, 39},
+  #                             {:nonterminal, :spacing}]},
+  #                {:sequence, [{:terminal, 34},
+  #                             {:zero_or_more,
+  #                              {:sequence, [{:not, {:terminal, 34}},
+  #                                           {:nonterminal, :char}]}},
+  #                             {:terminal, 34},
+  #                             {:nonterminal, :spacing}]}]},
+  #   :class => {:sequence, [{:terminal, 91},
+  #                          {:zero_or_more, {:sequence, [:TODO]}}]},
+
+  #   :LEFTARROW => {:sequence, [{:terminal, "<-"}, {:nonterminal, :spacing}]},
+  #   :SLASH => {:sequence, [{:terminal, }, {:nonterminal, :spacing}]}
+  #   }
 
 
   # Neotomex parses PEG expressions into this internal representation
+  @type terminal :: binary | char | Regex.t | nil
   @type nonterminal :: atom
-  @type terminal :: binary
 
   @type expression :: :empty
-                    | {:terminal, binary}
-                    | {:nonterminal, atom}
+                    | {:terminal, terminal}
+                    | {:nonterminal, nonterminal}
                     | {:sequence [expression]}
                     | {:priority, [expression]}
                     | {:zero_or_more, expression}
@@ -71,9 +180,12 @@ defmodule Neotomex.Grammar do
                     | {:not, expression}
 
   @type definition :: {nonterminal, expression}
+  @type transform :: ((term) -> {:ok, term})
+  @type expr_trans :: {expression, transform}
 
 
-  @typep match :: {atom, [match]}
+  # A match is the result of the Neotomex PEG grammar matching an expression
+  @typep match :: {expr_trans, [match] | match | String.t}
 
   # A grammar contains a root label, and a map of rules keyed by nonterminal label
   @type grammar :: %{root: nonterminal | false,
@@ -88,6 +200,14 @@ defmodule Neotomex.Grammar do
     %{root: root, definitions: definitions, memos: memos}
   end
 
+  # @doc """
+  # Returns a grammar for parsing PEGs.
+  # """
+  # @spec peg_grammar :: grammar
+  # def peg_grammar do
+  #   new(@peg_root, @peg_definitions)
+  # end
+
   @doc """
   Add a rule to the grammar.
 
@@ -101,26 +221,109 @@ defmodule Neotomex.Grammar do
     %{grammar | :definitions => [definitions | definition]}
   end
 
+
   @doc """
-  Parse the provided input using the grammar.
+  Parse the `input` using the `grammar` by matching a parse tree and
+  then applying all transforms.
+
+  ## Examples
+
+      iex> grammar = new(:root, %{root: {{:terminal, ~r/^[0-9]+/},
+      ...>                               &String.to_integer/1}})
+      iex> parse(grammar, "1")
+      {:ok, 1, ""}
+      iex> parse(grammar, "100")
+      {:ok, 100, ""}
+
   """
-  @spec parse(binary, grammar) :: {:ok, [term], binary} | :mismatch | {:error, term}
-  def parse(input, %{:root => root, :definitions => definitions} = grammar)
-      when is_binary(input) do
-    parse(input, grammar, definitions[root])
+  @spec parse(grammar, binary) :: {:ok, any, binary} | :mismatch | {:error, term}
+  def parse(grammar, input) do
+    case match(grammar, input) do
+      {:ok, match, rest} ->
+        {:ok, transform_match(match), rest}
+      otherwise ->
+        otherwise
+    end
   end
 
-  defp parse(_, _, nil),        do: {:error, :no_root}
-  # defp parse("", _, _),         do: {:ok, [], ""}
-  defp parse(input, _, :empty), do: {:ok, nil, input}
 
-  defp parse(input, _, {:terminal, terminal}) do
+  @doc """
+  Match the `input` using the grammar.
+
+  NB: Not tail call optimized. Possible?
+  """
+  @spec match(grammar, binary) :: {:ok, {expression, transform}, binary}
+                                | :mismatch | {:error, term}
+  def match(%{:root => root, :definitions => definitions} = grammar, input)
+      when is_binary(input) do
+    match(definitions[root], grammar, input)
+  end
+
+
+  @doc """
+  Transform the parse tree returned by match by applying the the
+  expressions' transform functions via depth first recursion.
+
+  NB: Not tail call optimized. Possible? Pack rat?
+
+  ## Examples
+
+      iex> transform_match({{nil, fn x -> String.to_integer(x) end},
+      ...>                  {{nil, nil}, "1"}})
+      1
+      iex> transform_match({{nil, fn [x, y] -> x + y end},
+      ...>                  [{{nil, nil}, 1}, {{nil, nil}, 1}]})
+      2
+  """
+  @spec transform_match(match) :: any
+  def transform_match({{_, nil}, match}) do
+    match
+  end
+  def transform_match({{_, transform_fn}, matches}) when is_list(matches) do
+    transform_fn.(for match <- matches, do: transform_match(match))
+  end
+  def transform_match({{_, transform_fn}, match}) when is_binary(match) do
+    transform_fn.(match)
+  end
+  def transform_match({{_, transform_fn}, match}) do
+    transform_fn.(transform_match(match))
+  end
+
+
+  ## Private Functions
+
+  defp match({identifier, _} = expr, grammar, input) when is_atom(identifier) do
+    # If no transform is provided, default it to `nil`
+    match({expr, nil}, grammar, input)
+  end
+
+  defp match(nil, _, _),        do: {:error, :no_root}
+  defp match(:empty, _, input), do: {:ok, nil, input}
+
+  # Terminal nodes can be characters [integer], strings, or regexs
+  defp match({{:terminal, char}, _} = expr_trans, _, <<char, rest :: utf8>>)
+      when is_integer(char) do
+    {:ok, {expr_trans, char}, rest}
+  end
+  defp match({{:terminal, char}, _}, _, _) when is_integer(char) do
+    :mismatch
+  end
+  defp match({{:terminal, terminal}, _} = expr_trans, _, input)
+      when is_binary(terminal) do
+    case String.split_at(input, String.length(terminal)) do
+      {^terminal, rest} ->
+        {:ok, {expr_trans, terminal}, rest}
+      {_, _} ->
+        :mismatch
+    end
+  end
+  defp match({{:terminal, terminal}, _} = expr_trans, _, input) do
     case Regex.run(terminal, input) do
       [""] ->
         # Make sure it's not just an empty match
         case Regex.match?(terminal, input) do
           true ->
-            {:ok, "", input}
+            {:ok, {expr_trans, ""}, input}
           false ->
             :mismatch
         end
@@ -129,112 +332,117 @@ defmodule Neotomex.Grammar do
       [match] ->
         # Two parts are necessary since the first is being trimmed away
         {^match, rest} = String.split_at(input, String.length(match))
-        {:ok, match, rest}
+        {:ok, {expr_trans, match}, rest}
     end
   end
 
-  defp parse(input, %{:definitions => definitions} = grammar,
-             {:nonterminal, nonterminal}) do
-    parse(input, grammar, definitions[nonterminal])
+  defp match({{:nonterminal, nonterminal}, _} = expr_trans,
+             %{:definitions => definitions} = grammar, input) do
+    case match(definitions[nonterminal], grammar, input) do
+      {:ok, match, rest} ->
+        {:ok, {expr_trans, match}, rest}
+      otherwise ->
+        otherwise
+    end
   end
 
-  defp parse(input, grammar, {:sequence, expressions}) do
-    parse_sequence(input, grammar, expressions)
+  defp match({{:sequence, _}, _} = expr_trans, grammar, input) do
+    match_sequence(expr_trans, grammar, input)
   end
 
-  defp parse(input, grammar, {:priority, expressions}) do
-    parse_priorities(input, grammar, expressions)
+  defp match({{:priority, _}, _} = expr_trans, grammar, input) do
+    match_priorities(expr_trans, grammar, input)
   end
 
-  defp parse(input, grammar, {:zero_or_more, expression}) do
-    parse_zero_or_more(input, grammar, expression)
+  defp match({{:zero_or_more, _}, _} = expr_trans, grammar, input) do
+   match_zero_or_more(expr_trans, grammar, input)
   end
 
-  defp parse(input, grammar, {:one_or_more, expression}) do
-    parse_one_or_more(input, grammar, expression)
+  defp match({{:one_or_more, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
+      {:ok, match, input} ->
+        match_zero_or_more(expr_trans, grammar, input, [match])
+      otherwise ->
+        otherwise
+    end
   end
 
-  defp parse(input, grammar, {:zero_or_one, expression}) do
-    case parse(input, grammar, expression) do
+  defp match({{:zero_or_one, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
       :mismatch ->
-        {:ok, nil, input}
+        {:ok, {expr_trans, nil}, input}
       otherwise ->
         otherwise
     end
   end
 
-  defp parse(input, grammar, {:and, expression}) do
-    case parse(input, grammar, expression) do
+  defp match({{:and, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
       {:ok, _, _} ->
-        {:ok, nil, input}
+        {:ok, {expr_trans, nil}, input}
       otherwise ->
         otherwise
     end
   end
 
-  defp parse(input, grammar, {:not, expression}) do
-    case parse(input, grammar, expression) do
+  defp match({{:not, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
       {:ok, _, _} ->
         :mismatch
       :mismatch ->
-        {:ok, nil, input}
+        {:ok, {expr_trans, nil}, input}
       {:error, reason} ->
         {:error, reason}
     end
   end
 
   # Helper for parsing a sequence of expressions
-  defp parse_sequence(input, grammar, expressions, acc \\ [])
-  defp parse_sequence(input, _, [], acc) do
-    {:ok, Enum.reverse(acc), input}
+  defp match_sequence({{:sequence, expressions}, _} = expr_trans, grammar, input) do
+    match_sequence(expr_trans, grammar, input, expressions, [])
   end
-  defp parse_sequence(input, grammar, [expression | expressions], acc) do
-    case parse(input, grammar, expression) do
-      {:ok, matches, input} ->
-        parse_sequence(input, grammar, expressions, [matches | acc])
+
+  defp match_sequence({{:sequence, _}, _} = expr_trans, _, input, [], acc) do
+    {:ok, {expr_trans, Enum.reverse(acc)}, input}
+  end
+  defp match_sequence(expr_trans, grammar, input, [expression | expressions], acc) do
+    case match(expression, grammar, input) do
+      {:ok, match, input} ->
+        match_sequence(expr_trans, grammar, input, expressions, [match | acc])
       otherwise ->
         otherwise
     end
   end
+
 
   # Helper for parsing a priority list of expressions
-  defp parse_priorities(_, _, []) do
-    :mismatch
+  defp match_priorities({{:priority, expressions}, _} = expr_trans, grammar, input) do
+    match_priorities(expr_trans, grammar, input, expressions)
   end
 
-  defp parse_priorities(input, grammar, [expression | expressions]) do
-    case parse(input, grammar, expression) do
-      {:ok, matches, input} ->
-        {:ok, matches, input}
+  defp match_priorities(_, _, _, []), do: :mismatch
+  defp match_priorities(expr_trans, grammar, input, [expression | expressions]) do
+    case match(expression, grammar, input) do
+      {:ok, match, input} ->
+        {:ok, {expr_trans, match}, input}
       :mismatch ->
-        parse_priorities(input, grammar, expressions)
+        match_priorities(expr_trans, grammar, input, expressions)
       {:error, reason} ->
         {:error, reason}
     end
   end
 
 
-  # Helper for zero or more (* suffix)
-  defp parse_zero_or_more(input, grammar, expression, acc \\ [])
-  defp parse_zero_or_more(input, grammar, expression, acc) do
-    case parse(input, grammar, expression) do
+  # Helper for zero or more (* suffix). Also used for one or more.
+  defp match_zero_or_more(expr_trans, grammar, input, acc \\ [])
+  defp match_zero_or_more({{_, expression}, _} = expr_trans, grammar, input, acc) do
+    case match(expression, grammar, input) do
       {:ok, match, input} ->
-        parse_zero_or_more(input, grammar, expression, [match | acc])
+        match_zero_or_more(expr_trans, grammar, input, [match | acc])
       :mismatch ->
-        {:ok, Enum.reverse(acc), input}
+        {:ok, {expr_trans, Enum.reverse(acc)}, input}
       {:error, reason} ->
         {:error, reason}
     end
   end
 
-  # Helper for one or more (+ suffix)
-  defp parse_one_or_more(input, grammar, expression, acc \\ [])
-  defp parse_one_or_more(input, grammar, expression, []) do
-    case parse(input, grammar, expression) do
-      {:ok, match, input} ->
-        parse_zero_or_more(input, grammar, expression, [match])
-      otherwise ->
-        otherwise
-    end
-  end
 end
