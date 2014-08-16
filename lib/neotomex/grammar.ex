@@ -1,4 +1,6 @@
 defmodule Neotomex.Grammar do
+  require Logger
+
   @moduledoc """
   # Neotomex.Grammar
 
@@ -52,117 +54,14 @@ defmodule Neotomex.Grammar do
   ## Transform
 
   A transform is a function that modifies the match for an expression. This
-  can be used to evaluate the parse tree.
+  can be used to evaluate the parse tree. When applying transforms to
+  the matched tree, they are applied depth first.
 
   The default transform is the identity function.
 
-  Transforms must return {:ok, transformed} when successful, where transformed
-  is the transformed match.
+  Transforms must return `transformed` when successful, where
+  `transformed` is the transformed match.
   """
-
-  # Specification of PEG, in PEG:
-
-  # Hierarchical syntax
-  # Grammar    <- Spacing Definition+ EndOfFile
-  # Definition <- Identifier LEFTARROW Expression
-  # Expression <- Sequence (SLASH Sequence)*
-  # Sequence   <- Prefix*
-  # Prefix     <- (AND / NOT)? Suffix
-  # Suffix     <- Primary (QUESTION / STAR / PLUS)?
-  # Primary    <- Identifier !LEFTARROW
-  #             / OPEN Expression CLOSE
-  #             / Literal / Class / DOT
-
-  # Lexical syntax
-  # Identifier <- IdentStart IdentCont* Spacing
-  # IdentStart <- [a-zA-Z_]
-  # IdentCont  <- IdentStart / [0-9]
-  # Literal    <- ['] (!['] Char)* ['] Spacing
-  #             / ["] (!["] Char)* ["] Spacing
-  # Class      <- '[' (!']' Range)* ']' Spacing
-  # Range      <- Char '-' Char / Char
-  # Char       <- '\\' [nrt'"\[\]\\]
-  #             / '\\' [0-2][0-7][0-7]
-  #             / '\\' [0-7][0-7]?
-  #             / !'\\' .
-
-  # LEFTARROW  <- '<-' Spacing
-  # SLASH      <- '/' Spacing
-  # AND        <- '&' Spacing
-  # NOT        <- '!' Spacing
-  # QUESTION   <- '?' Spacing
-  # STAR       <- '*' Spacing
-  # PLUS       <- '+' Spacing
-  # OPEN       <- '(' Spacing
-  # CLOSE      <- ')' Spacing
-  # DOT        <- '.' Spacing
-  # Spacing    <- (Space / Comment)*
-  # Comment    <- '#' (!EndOfLine .)* EndOfLine
-  # Space      <- ' ' / '\t' / EndOfLine
-  # EndOfLine  <- '\r\n' / '\n' / '\r'
-  # EndOfFile  <- !.
-
-  # PEG parser grammar defined in Neotomex internal PEG format
-  @peg_root        :grammar
-  # @peg_definitions
-  # %{:grammar =>
-  #   # Hierarchical syntax
-  #   {:sequence, [{:nonterminal, :spacing},
-  #                {:one_or_more, {:nonterminal, :definition}},
-  #                {:nonterminal, :EOF}]},
-  #   :definition =>
-  #   {:sequence, [{:nonterminal, :identifier},
-  #                :LEFTARROW, :expression]},
-  #   :expression =>
-  #   {:sequence, [{:non_terminal, :seq},
-  #                {:zero_or_more, {:sequence,
-  #                                 [{:nonterminal, :SLASH},
-  #                                  {:nonterminal, :seq}]}}]},
-  #   :sequence => {:zero_or_more, {:nonterminal, :prefix}},
-  #   :prefix => {:sequence, [{:priority, [:AND, :NOT]}, {:nonterminal, :suffix}]},
-  #   :suffix =>
-  #   {:sequence, [{:nonterminal, :primary},
-  #                {:zero_or_one, {:priority, [{:nonterminal, :QUESTION},
-  #                                            {:nonterminal, :STAR},
-  #                                            {:nonterminal, :PLUS}]}}]},
-  #   :primary =>
-  #   {:priority, [{:sequence, [{:nonterminal, :identifier},
-  #                             {:not, {:nonterminal, :LEFTARROW}}]},
-  #                {:sequence, [{:nonterminal, :OPEN},
-  #                             {:nonterminal, :expression},
-  #                             {:nonterminal, :CLOSE}]},
-  #                {:nonterminal, :literal},
-  #                {:nonterminal, :class},
-  #                {:nonterminal, :DOT}]},
-
-  #   # Lexical syntax
-  #   :identifier =>
-  #   {:sequence, [{:nonterminal, :ident_start},
-  #                {:zero_or_more, {:nonterminal, :ident_cont}},
-  #                {:nonterminal, :SPACING}]},
-  #   :ident_start => {:terminal, ~r/^[a-zA-Z_]/},
-  #   :ident_cont => {:priority, [{:nonterminal, :ident_start},
-  #                               {:terminal, ~r/^[0-9]/}]},
-  #   :literal =>
-  #   {:priority, [{:sequence, [{:terminal, 39},
-  #                             {:zero_or_more,
-  #                              {:sequence, [{:not, {:terminal, 39}},
-  #                                           {:nonterminal, :char}]}},
-  #                             {:terminal, 39},
-  #                             {:nonterminal, :spacing}]},
-  #                {:sequence, [{:terminal, 34},
-  #                             {:zero_or_more,
-  #                              {:sequence, [{:not, {:terminal, 34}},
-  #                                           {:nonterminal, :char}]}},
-  #                             {:terminal, 34},
-  #                             {:nonterminal, :spacing}]}]},
-  #   :class => {:sequence, [{:terminal, 91},
-  #                          {:zero_or_more, {:sequence, [:TODO]}}]},
-
-  #   :LEFTARROW => {:sequence, [{:terminal, "<-"}, {:nonterminal, :spacing}]},
-  #   :SLASH => {:sequence, [{:terminal, }, {:nonterminal, :spacing}]}
-  #   }
-
 
   # Neotomex parses PEG expressions into this internal representation
   @type terminal :: binary | char | Regex.t | nil
@@ -200,13 +99,6 @@ defmodule Neotomex.Grammar do
     %{root: root, definitions: definitions, memos: memos}
   end
 
-  # @doc """
-  # Returns a grammar for parsing PEGs.
-  # """
-  # @spec peg_grammar :: grammar
-  # def peg_grammar do
-  #   new(@peg_root, @peg_definitions)
-  # end
 
   @doc """
   Add a rule to the grammar.
@@ -217,8 +109,8 @@ defmodule Neotomex.Grammar do
   def add_rule(%{:root => false} = grammar, {ident, _} = definition) do
     add_rule(%{grammar | :root => ident}, definition)
   end
-  def add_rule(%{:definitions => definitions} = grammar, definition) do
-    %{grammar | :definitions => [definitions | definition]}
+  def add_rule(%{:definitions => definitions} = grammar, {identity, expr_trans}) do
+    %{grammar | :definitions => Map.put(definitions, identity, expr_trans)}
   end
 
 
@@ -276,8 +168,18 @@ defmodule Neotomex.Grammar do
       2
   """
   @spec transform_match(match) :: any
+  def transform_match(nil) do
+    nil
+  end
+  def transform_match({{_, nil}, terminal})
+      when is_binary(terminal) or is_integer(terminal) do
+    terminal
+  end
+  def transform_match({{_, nil}, matches}) when is_list(matches) do
+    for match <- matches, do: transform_match(match)
+  end
   def transform_match({{_, nil}, match}) do
-    match
+    transform_match(match)
   end
   def transform_match({{_, transform_fn}, matches}) when is_list(matches) do
     transform_fn.(for match <- matches, do: transform_match(match))
@@ -290,6 +192,121 @@ defmodule Neotomex.Grammar do
   end
 
 
+  @doc """
+  Validate the grammar. This is especially useful for
+  debugging a grammar since it is exhaustive and provides richer error
+  reporting than a failed match.
+
+  Notes:
+
+  - Dialyzer is your friend -- `validate/1` augments it
+  - Grammar's are not validated by default due to the performance overhead.
+  - The validation will return the result of the first failure. There may
+    be more issues with the grammar.
+
+  Validation checks that:
+
+  - The grammar has a `:root` fields.
+  - The grammar has a `:definitions` fields.
+  - The root references a definition
+  - All nonterminals reference a definition.
+  - There are no unreferenced definitions [TODO]
+
+  ## Examples
+
+  More complex examples can be found in `test/neotomex/grammar_test.exs` [todo]
+
+      iex> validate(%{})
+      {:error, {:missing, :root}}
+      iex> validate(%{:root => :root})
+      {:error, {:missing, :definitions}}
+      iex> validate(%{:root => :root, :definitions => %{}})
+      {:error, {:missing, :root_definition}}
+      iex> validate(%{:root => :root,
+      ...>            :definitions => %{:root => {:nonterminal, :reference}}})
+      {:error, {:bad_definition, {:root, {:missing, {:definition, :reference}}}}}
+      iex> validate(%{:root => :root,
+      ...>            :definitions => %{:root => {:bad_type, :nonsense}}})
+      {:error, {:bad_definition, {:root, {:bad_expr_type, :bad_type}}}}
+      iex> validate(%{:root => :root, :definitions => %{:root => :the_bad_expr}})
+      {:error, {:bad_definition, {:root, {:bad_expr, :the_bad_expr}}}}
+      iex> validate(%{:root => :root,
+      ...>            :definitions => %{:root => {:terminal, ?a}}})
+      :ok
+  """
+  @spec validate(grammar) :: :ok |
+    {:error, {:missing, :root
+                      | :definitions
+                      | :root_definitions
+                      | {:definition, atom}}}
+  def validate(%{:root => root, :definitions => definitions} = grammar) when
+      root != nil and definitions != nil do
+    case Dict.has_key?(definitions, root) do
+      true ->
+        validate(grammar, Dict.to_list(definitions))
+      false ->
+        {:error, {:missing, :root_definition}}
+    end
+  end
+  def validate(grammar) do
+    # Catch if root or defintions aren't present
+    case {Dict.has_key?(grammar, :root), Dict.has_key?(grammar, :definitions)} do
+      {false, _} ->
+        {:error, {:missing, :root}}
+      {_, false} ->
+        {:error, {:missing, :definitions}}
+    end
+  end
+
+
+  ## Interface Macros [TODO]
+
+  @doc false
+  defmacro __using__(_opts) do
+    quote do
+      import Neotomex.Grammar, only: :macros
+      @_neotomex_grammar Neotomex.Grammar.new()
+      @before_compile Neotomex.Grammar
+    end
+  end
+
+  @doc false
+  defmacro __before_compile__(_env) do
+    quote unquote: false do
+      IO.inspect @_neotomex_grammar
+      IO.inspect Macro.escape(@_neotomex_grammar)
+      def parse(input) do
+        IO.puts "YEAH"
+        Neotomex.Grammar.parse(unquote(Macro.escape(@_neotomex_grammar)), input)
+      end
+    end
+  end
+
+  defmacro testin(body) do
+    IO.inspect(body[:do])
+    body[:do]
+  end
+
+
+  @doc """
+  Create a new definition and add it to the module's grammar.
+  """
+  defmacro definition(identifier, _expression, opts) do
+    #expression = parse_peg_expression(expression)
+    expression  = {:terminal, ~r/^[0-9]+/}
+    expr_trans = case opts[:transform] do
+                   nil ->
+                     expression
+                   transform_fn ->
+                     {Macro.escape(expression), transform_fn}
+                 end
+    new_definition = {identifier, expr_trans}
+    quote bind_quoted: [new_definition: new_definition] do
+      @_neotomex_grammar Neotomex.Grammar.add_rule(@_neotomex_grammar, new_definition)
+    end
+  end
+
+
   ## Private Functions
 
   defp match({identifier, _} = expr, grammar, input) when is_atom(identifier) do
@@ -297,23 +314,27 @@ defmodule Neotomex.Grammar do
     match({expr, nil}, grammar, input)
   end
 
-  defp match(nil, _, _),        do: {:error, :no_root}
+  defp match(nil, _, _),        do: {:error, :no_node_ref}
   defp match(:empty, _, input), do: {:ok, nil, input}
 
-  # Terminal nodes can be characters [integer], strings, or regexs
-  defp match({{:terminal, char}, _} = expr_trans, _, <<char, rest :: utf8>>)
+  # Terminal nodes can be a char, string, or regex
+  defp match({{:terminal, char}, _} = expr_trans, _, <<char, rest :: binary>>)
       when is_integer(char) do
+    Logger.debug "MATCH: termianl char [#{char}]"
     {:ok, {expr_trans, char}, rest}
   end
-  defp match({{:terminal, char}, _}, _, _) when is_integer(char) do
+  defp match({{:terminal, char}, _}, _, rest) when is_integer(char) do
+    Logger.debug "MISMATCH: terminal char [#{[char]}] against [#{rest}]"
     :mismatch
   end
   defp match({{:terminal, terminal}, _} = expr_trans, _, input)
       when is_binary(terminal) do
     case String.split_at(input, String.length(terminal)) do
       {^terminal, rest} ->
+        Logger.debug "MATCH: terminal binary [#{terminal}] against [#{input}]"
         {:ok, {expr_trans, terminal}, rest}
       {_, _} ->
+        Logger.debug "MISMATCH: terminal binary [#{terminal}] against [#{input}]"
         :mismatch
     end
   end
@@ -338,10 +359,13 @@ defmodule Neotomex.Grammar do
 
   defp match({{:nonterminal, nonterminal}, _} = expr_trans,
              %{:definitions => definitions} = grammar, input) do
+    Logger.debug "Attempting nonterminal match for #{nonterminal}"
     case match(definitions[nonterminal], grammar, input) do
       {:ok, match, rest} ->
+        Logger.debug "MATCH nonterminal: [#{nonterminal}] against [#{input}], leaving [#{rest}]"
         {:ok, {expr_trans, match}, rest}
       otherwise ->
+        Logger.debug "MISMATCH nonterminal: [#{nonterminal}] against [#{input}]"
         otherwise
     end
   end
@@ -349,7 +373,7 @@ defmodule Neotomex.Grammar do
   defp match({{:sequence, _}, _} = expr_trans, grammar, input) do
     match_sequence(expr_trans, grammar, input)
   end
-
+ 
   defp match({{:priority, _}, _} = expr_trans, grammar, input) do
     match_priorities(expr_trans, grammar, input)
   end
@@ -415,10 +439,12 @@ defmodule Neotomex.Grammar do
 
 
   # Helper for parsing a priority list of expressions
+  @doc false
   defp match_priorities({{:priority, expressions}, _} = expr_trans, grammar, input) do
     match_priorities(expr_trans, grammar, input, expressions)
   end
 
+  @doc false
   defp match_priorities(_, _, _, []), do: :mismatch
   defp match_priorities(expr_trans, grammar, input, [expression | expressions]) do
     case match(expression, grammar, input) do
@@ -433,6 +459,7 @@ defmodule Neotomex.Grammar do
 
 
   # Helper for zero or more (* suffix). Also used for one or more.
+  @doc false
   defp match_zero_or_more(expr_trans, grammar, input, acc \\ [])
   defp match_zero_or_more({{_, expression}, _} = expr_trans, grammar, input, acc) do
     case match(expression, grammar, input) do
@@ -445,4 +472,75 @@ defmodule Neotomex.Grammar do
     end
   end
 
+
+  @doc false
+  defp validate(_grammar, []), do: :ok
+  defp validate(grammar, [{id, {expr, transform}} | rest])
+      when is_function(transform) or transform == nil do
+    validate(grammar, [{id, expr} | rest])
+  end
+  defp validate(grammar, [{id, expr} | rest]) do
+    case validate_expr(grammar, expr) do
+      :ok ->
+        validate(grammar, rest)
+      {:error, reason} ->
+        {:error, {:bad_definition, {id, reason}}}
+    end
+  end
+
+  @doc false
+  defp validate_expr(%{:definitions => definitions}, {:nonterminal, id}) do
+    # check that the referenced terminal exists in the grammar
+    case Dict.has_key?(definitions, id) do
+      true ->
+        :ok
+      false ->
+        {:error, {:missing, {:definition, id}}}
+    end
+  end
+  defp validate_expr(grammar, {list_expr_type, exprs})
+      when list_expr_type == :sequence or list_expr_type == :priority do
+    # handle a rule which wraps a list of rules
+    if is_list(exprs) do
+      validate_expr(grammar, exprs)
+    else
+      {:error, {:bad_rule, {list_expr_type, exprs}}}
+    end
+  end
+  defp validate_expr(grammar, {wrap_expr_type, expr})
+      when wrap_expr_type == :zero_or_more
+        or wrap_expr_type == :zero_or_one
+        or wrap_expr_type == :one_or_more
+        or wrap_expr_type == :not
+        or wrap_expr_type == :and do
+    # handle a expr which is wraps a single expression
+    if is_tuple(expr) do
+      validate_expr(grammar, expr)
+    else
+      {:error, {:bad_expr, {wrap_expr_type, expr}}}
+    end
+  end
+
+  defp validate_expr(_grammar, []), do: :ok
+  defp validate_expr(grammar, [expr | rest]) do
+    # handle lists of exprs
+    case validate_expr(grammar, expr) do
+      :ok ->
+        validate_expr(grammar, rest)
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp validate_expr(_grammar, {:terminal, terminal}) do
+    if Regex.regex?(terminal) or is_binary(terminal) or is_integer(terminal) do
+      :ok
+    else
+      {:bad_terminal, terminal}
+    end
+  end
+  defp validate_expr(_grammar, {expr_type, _}) do
+    {:error, {:bad_expr_type, expr_type}}
+  end
+  defp validate_expr(_grammar, expr),           do: {:error, {:bad_expr, expr}}
 end

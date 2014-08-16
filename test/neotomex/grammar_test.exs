@@ -1,9 +1,30 @@
 defmodule Neotomex.GrammarTest do
   use ExUnit.Case
-  import Neotomex.Grammar  # using new/1,2,3 and parse/2,3
+  import Neotomex.Grammar, only: [new: 2, match: 2, parse: 2,
+                                  transform_match: 1, validate: 1]
   doctest Neotomex.Grammar
 
+  # defmodule Number do
+  #   use Neotomex.Grammar
+
+  #   # IO.inspect((testin string, do: string).(6))
+  #   # IO.inspect quote do: fn(string = 5) -> string end
+
+  #   testin do: (a -> a)
+  #   definition :root, "[0-9]+",
+  #     transform: fn(x) -> String.to_integer(x) end
+
+  # end
+
+  # test "macro interface (Number)" do
+  #   assert Number.parse("1") == 1
+  # end
+
+
   test "parse" do
+      grammar = new(:root, %{root: {:terminal, ~r/^[0-9]+/}})
+      assert parse(grammar, "1") == {:ok, "1", ""}
+
       grammar = new(:root, %{root: {{:terminal, ~r/^[0-9]+/}, &String.to_integer/1}})
       assert parse(grammar, "1") == {:ok, 1, ""}
       assert parse(grammar, "100") == {:ok, 100, ""}
@@ -27,6 +48,12 @@ defmodule Neotomex.GrammarTest do
                                         {{{:terminal, ~r/^.*/}, nil}, ""}}, ""}
     assert match(grammar, "test") == {:ok, {{{:nonterminal, :non}, nil},
                                             {{{:terminal, ~r/^.*/}, nil}, "test"}}, ""}
+
+    expression = {:terminal, ?a}
+    grammar = new(:root, %{root: expression})
+    assert match(grammar, "") == :mismatch
+    assert match(grammar, "b") == :mismatch
+    assert match(grammar, "a") == {:ok, {{{:terminal, 97}, nil}, 97}, ""}
   end
 
   test "match sequence" do
@@ -103,6 +130,15 @@ defmodule Neotomex.GrammarTest do
     assert match(grammar, "a") == :mismatch
   end
 
+  test "validate" do
+    assert validate(%{}) == {:error, {:missing, :root}}
+    assert validate(%{:root => :root}) == {:error, {:missing, :definitions}}
+    assert validate(%{:root => :root,
+                      :definitions => %{:root => {:terminal, ?a}}}) == :ok
+    assert validate(%{:root => :root,
+                      :definitions => %{:root => {{:terminal, ?a}, nil}}}) == :ok
+  end
+
   test "transform" do
     assert transform_match({{nil, fn x -> String.to_integer(x) end},
                             {{nil, nil}, "1"}}) == 1
@@ -110,4 +146,5 @@ defmodule Neotomex.GrammarTest do
     match = {{nil, fn [x, y] -> x + y end}, [{{nil, nil}, 1}, {{nil, nil}, 1}]}
     assert transform_match(match) == 2
   end
+
 end

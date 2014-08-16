@@ -1,10 +1,11 @@
 defmodule Neotomex.Mixfile do
   use Mix.Project
+  use Mix.Config
 
   def project do
     [app: :neotomex,
      version: "0.0.1",
-     elixir: "~> 0.14.3-dev",
+     elixir: "~> 0.15.0",
      deps: deps,
      description: description]
   end
@@ -19,7 +20,7 @@ defmodule Neotomex.Mixfile do
 
   defp description do
     """
-    A PEG parser.
+    A PEG implementation.
     """
   end
 end
