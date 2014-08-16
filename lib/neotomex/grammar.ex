@@ -98,13 +98,6 @@ defmodule Neotomex.Grammar do
     %{root: root, definitions: definitions, memos: memos}
   end
 
-  # @doc """
-  # Returns a grammar for parsing PEGs.
-  # """
-  # @spec peg_grammar :: grammar
-  # def peg_grammar do
-  #   new(@peg_root, @peg_definitions)
-  # end
 
   @doc """
   Add a rule to the grammar.
@@ -313,20 +306,24 @@ defmodule Neotomex.Grammar do
   defp match(nil, _, _),        do: {:error, :no_node_ref}
   defp match(:empty, _, input), do: {:ok, nil, input}
 
-  # Terminal nodes can be characters [integer], strings, or regexs
-  defp match({{:terminal, char}, _} = expr_trans, _, <<char, rest :: utf8>>)
+  # Terminal nodes can be a char, string, or regex
+  defp match({{:terminal, char}, _} = expr_trans, _, <<char, rest :: binary>>)
       when is_integer(char) do
+    Logger.debug "MATCH: termianl char [#{char}]"
     {:ok, {expr_trans, char}, rest}
   end
-  defp match({{:terminal, char}, _}, _, _) when is_integer(char) do
+  defp match({{:terminal, char}, _}, _, rest) when is_integer(char) do
+    Logger.debug "MISMATCH: terminal char [#{[char]}] against [#{rest}]"
     :mismatch
   end
   defp match({{:terminal, terminal}, _} = expr_trans, _, input)
       when is_binary(terminal) do
     case String.split_at(input, String.length(terminal)) do
       {^terminal, rest} ->
+        Logger.debug "MATCH: terminal binary [#{terminal}] against [#{input}]"
         {:ok, {expr_trans, terminal}, rest}
       {_, _} ->
+        Logger.debug "MISMATCH: terminal binary [#{terminal}] against [#{input}]"
         :mismatch
     end
   end
@@ -351,10 +348,13 @@ defmodule Neotomex.Grammar do
 
   defp match({{:nonterminal, nonterminal}, _} = expr_trans,
              %{:definitions => definitions} = grammar, input) do
+    Logger.debug "Attempting nonterminal match for #{nonterminal}"
     case match(definitions[nonterminal], grammar, input) do
       {:ok, match, rest} ->
+        Logger.debug "MATCH nonterminal: [#{nonterminal}] against [#{input}], leaving [#{rest}]"
         {:ok, {expr_trans, match}, rest}
       otherwise ->
+        Logger.debug "MISMATCH nonterminal: [#{nonterminal}] against [#{input}]"
         otherwise
     end
   end
@@ -494,6 +494,7 @@ defmodule Neotomex.Grammar do
   end
   defp validate_expr(grammar, {wrap_expr_type, expr})
       when wrap_expr_type == :zero_or_more
+        or wrap_expr_type == :zero_or_one
         or wrap_expr_type == :one_or_more
         or wrap_expr_type == :not
         or wrap_expr_type == :and do

@@ -48,6 +48,12 @@ defmodule Neotomex.GrammarTest do
                                         {{{:terminal, ~r/^.*/}, nil}, ""}}, ""}
     assert match(grammar, "test") == {:ok, {{{:nonterminal, :non}, nil},
                                             {{{:terminal, ~r/^.*/}, nil}, "test"}}, ""}
+
+    expression = {:terminal, ?a}
+    grammar = new(:root, %{root: expression})
+    assert match(grammar, "") == :mismatch
+    assert match(grammar, "b") == :mismatch
+    assert match(grammar, "a") == {:ok, {{{:terminal, 97}, nil}, 97}, ""}
   end
 
   test "match sequence" do

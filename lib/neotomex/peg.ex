@@ -50,10 +50,20 @@ defmodule Neotomex.PEG do
   # Parse a PEG expression for the Neotoma grammar interface.
 
   @doc """
-  Parse the provided input using the peg_grammar.
+  Parse the input using the `peg_grammar`.
   """
   def parse(input) do
     Neotomex.Grammar.parse(grammar, input)
+  end
+
+
+  @doc """
+  Match against the input using the `peg_grammar`.
+
+  This could be useful for basic validation of grammars.
+  """
+  def match(input) do
+    Neotomex.Grammar.match(grammar, input)
   end
 
 
@@ -69,15 +79,16 @@ defmodule Neotomex.PEG do
                      {:nonterminal, :EOF}]},
       :definition =>
         {:sequence, [{:nonterminal, :identifier},
-                     :LEFTARROW, :expression]},
+                     {:nonterminal, :LEFTARROW},
+                     {:nonterminal, :expression}]},
       :expression =>
         {:sequence, [{:nonterminal, :sequence},
                      {:zero_or_more, {:sequence,
                                       [{:nonterminal, :SLASH},
-                                       {:nonterminal, :seq}]}}]},
+                                       {:nonterminal, :sequence}]}}]},
       :sequence => {:zero_or_more, {:nonterminal, :prefix}},
-      :prefix => {:sequence, [{:priority, [{:nonterminal, :AND},
-                                           {:nonterminal, :NOT}]},
+      :prefix => {:sequence, [{:zero_or_one, {:priority, [{:nonterminal, :AND},
+                                                          {:nonterminal, :NOT}]}},
                               {:nonterminal, :suffix}]},
       :suffix =>
         {:sequence, [{:nonterminal, :primary},
@@ -103,11 +114,11 @@ defmodule Neotomex.PEG do
       :ident_cont => {:priority, [{:nonterminal, :ident_start},
                                   {:terminal, ~r/^[0-9]/}]},
       :literal =>
-        {:priority, [{:sequence, [{:terminal, 39},
+        {:priority, [{:sequence, [{:terminal, ?'},
                                   {:zero_or_more,
                                    {:sequence, [{:not, {:terminal, 39}},
                                                 {:nonterminal, :char}]}},
-                                  {:terminal, 39},
+                                  {:terminal, ?'},
                                   {:nonterminal, :spacing}]},
                      {:sequence, [{:terminal, 34},
                                   {:zero_or_more,
@@ -115,33 +126,41 @@ defmodule Neotomex.PEG do
                                                 {:nonterminal, :char}]}},
                                   {:terminal, 34},
                                   {:nonterminal, :spacing}]}]},
-      :class => {:sequence, [{:terminal, 91},
-                             {:zero_or_more, {:sequence, [:TODO]}}]},
+      :class => {:sequence, [{:terminal, ?[},
+                                           {:zero_or_more, {:sequence, [{:not, {:terminal, 93}},
+                                                                        {:nonterminal, :range}]}},
+                                           {:terminal, ?]},
+                             {:nonterminal, :spacing}]},
+      :range => {:priority, [{:sequence, [{:nonterminal, :char},
+                                          {:terminal, ?-},
+                                          {:nonterminal, :char}]},
+                             {:nonterminal, :char}]},
+      :char => {:terminal, ~r/./},  # TODO -- this is wrong
 
-      :LEFTARROW => {:sequence, [{:terminal, "<-"}, {:nonterminal, :spacing}]},
-      :SLASH => {:sequence, [{:terminal, "/"}, {:nonterminal, :spacing}]},
-      :AND => {:sequence, [{:terminal, ?&}, {:nonterminal, :spacing}]},
-      :NOT => {:sequence, [{:terminal, ?!}, {:nonterminal, :spacing}]},
-      :QUESTION => {:sequence, [{:terminal, ??}, {:nonterminal, :spacing}]},
-      :STAR => {:sequence, [{:terminal, ?*}, {:nonterminal, :spacing}]},
-      :PLUS => {:sequence, [{:terminal, ?+}, {:nonterminal, :spacing}]},
-      :OPEN => {:sequence, [{:terminal, ?(}, {:nonterminal, :spacing}]},
-      :CLOSE => {:sequence, [{:terminal, ?)}, {:nonterminal, :spacing}]},
-      :DOT => {:sequence, [{:terminal, ?.}, {:nonterminal, :spacing}]},
-      :spacing => {:zero_or_more, {:priority, [{:nonterminal, :space},
-                                               {:nonterminal, :comment}]}},
-      :comment => {:sequence, [{:terminal, "#"},
-                               {:zero_or_more,
-                                {:sequence, [{:not, {:nonterminal, :EOL}},
-                                             {:terminal, ~r/./}]}},
+        :LEFTARROW => {:sequence, [{:terminal, "<-"}, {:nonterminal, :spacing}]},
+        :SLASH     => {:sequence, [{:terminal, 47}, {:nonterminal, :spacing}]},
+        :AND       => {:sequence, [{:terminal, ?&}, {:nonterminal, :spacing}]},
+        :NOT       => {:sequence, [{:terminal, ?!}, {:nonterminal, :spacing}]},
+        :QUESTION  => {:sequence, [{:terminal, ??}, {:nonterminal, :spacing}]},
+        :STAR      => {:sequence, [{:terminal, ?*}, {:nonterminal, :spacing}]},
+        :PLUS      => {:sequence, [{:terminal, ?+}, {:nonterminal, :spacing}]},
+        :OPEN      => {:sequence, [{:terminal, ?(}, {:nonterminal, :spacing}]},
+        :CLOSE     => {:sequence, [{:terminal, ?)}, {:nonterminal, :spacing}]},
+        :DOT       => {:sequence, [{:terminal, ?.}, {:nonterminal, :spacing}]},
+        :spacing   => {:zero_or_more, {:priority, [{:nonterminal, :space},
+                                                   {:nonterminal, :comment}]}},
+        :comment => {:sequence, [{:terminal, ?#},
+                                 {:zero_or_more,
+                                  {:sequence, [{:not, {:nonterminal, :EOL}},
+                                               {:terminal, ~r/./}]}},
+                                 {:nonterminal, :EOL}]},
+        :space => {:priority, [{:terminal, " "},
+                               {:terminal, "\t"},
                                {:nonterminal, :EOL}]},
-      :space => {:priority, [{:terminal, " "},
-                             {:terminal, "t"},
-                             {:nonterminal, :EOL}]},
-      :EOL => {:priority, [{:terminal, "\r\n"},
-                           {:terminal, "\n"},
-                           {:terminal, "\r"}]},
-      :EOF => {:not, {:terminal, ~r/./}}
+        :EOL => {:priority, [{:terminal, "\r\n"},
+                             {:terminal, "\n"},
+                             {:terminal, "\r"}]},
+        :EOF => {:not, {:terminal, ~r/./}}  # TODO this isn't matching...
      }
 
     Neotomex.Grammar.new(:grammar, definitions)
