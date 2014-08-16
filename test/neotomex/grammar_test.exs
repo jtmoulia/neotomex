@@ -130,6 +130,15 @@ defmodule Neotomex.GrammarTest do
     assert match(grammar, "a") == :mismatch
   end
 
+  test "validate" do
+    assert validate(%{}) == {:error, {:missing, :root}}
+    assert validate(%{:root => :root}) == {:error, {:missing, :definitions}}
+    assert validate(%{:root => :root,
+                      :definitions => %{:root => {:terminal, ?a}}}) == :ok
+    assert validate(%{:root => :root,
+                      :definitions => %{:root => {{:terminal, ?a}, nil}}}) == :ok
+  end
+
   test "transform" do
     assert transform_match({{nil, fn x -> String.to_integer(x) end},
                             {{nil, nil}, "1"}}) == 1

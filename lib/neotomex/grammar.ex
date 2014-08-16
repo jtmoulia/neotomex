@@ -362,7 +362,7 @@ defmodule Neotomex.Grammar do
   defp match({{:sequence, _}, _} = expr_trans, grammar, input) do
     match_sequence(expr_trans, grammar, input)
   end
-
+ 
   defp match({{:priority, _}, _} = expr_trans, grammar, input) do
     match_priorities(expr_trans, grammar, input)
   end
@@ -464,6 +464,10 @@ defmodule Neotomex.Grammar do
 
   @doc false
   defp validate(_grammar, []), do: :ok
+  defp validate(grammar, [{id, {expr, transform}} | rest])
+      when is_function(transform) or transform == nil do
+    validate(grammar, [{id, expr} | rest])
+  end
   defp validate(grammar, [{id, expr} | rest]) do
     case validate_expr(grammar, expr) do
       :ok ->
