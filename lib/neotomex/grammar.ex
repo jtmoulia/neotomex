@@ -54,12 +54,13 @@ defmodule Neotomex.Grammar do
   ## Transform
 
   A transform is a function that modifies the match for an expression. This
-  can be used to evaluate the parse tree.
+  can be used to evaluate the parse tree. When applying transforms to
+  the matched tree, they are applied depth first.
 
   The default transform is the identity function.
 
-  Transforms must return {:ok, transformed} when successful, where transformed
-  is the transformed match.
+  Transforms must return `transformed` when successful, where
+  `transformed` is the transformed match.
   """
 
   # Neotomex parses PEG expressions into this internal representation
@@ -167,8 +168,18 @@ defmodule Neotomex.Grammar do
       2
   """
   @spec transform_match(match) :: any
+  def transform_match(nil) do
+    nil
+  end
+  def transform_match({{_, nil}, terminal})
+      when is_binary(terminal) or is_integer(terminal) do
+    terminal
+  end
+  def transform_match({{_, nil}, matches}) when is_list(matches) do
+    for match <- matches, do: transform_match(match)
+  end
   def transform_match({{_, nil}, match}) do
-    match
+    transform_match(match)
   end
   def transform_match({{_, transform_fn}, matches}) when is_list(matches) do
     transform_fn.(for match <- matches, do: transform_match(match))
