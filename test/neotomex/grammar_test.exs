@@ -8,7 +8,8 @@ defmodule Neotomex.GrammarTest do
       grammar = new(:root, %{root: {:terminal, ~r/^[0-9]+/}})
       assert parse(grammar, "1") == {:ok, "1", ""}
 
-      grammar = new(:root, %{root: {{:terminal, ~r/^[0-9]+/}, &String.to_integer/1}})
+      grammar = new(:root, %{root: {{:terminal, ~r/^[0-9]+/},
+                                    {:transform, &String.to_integer/1}}})
       assert parse(grammar, "1") == {:ok, 1, ""}
       assert parse(grammar, "100") == {:ok, 100, ""}
   end
@@ -123,11 +124,21 @@ defmodule Neotomex.GrammarTest do
   end
 
   test "transform" do
-    assert transform_match({{nil, fn x -> String.to_integer(x) end},
+    assert transform_match({{nil, {:transform, fn x -> String.to_integer(x) end}},
                             {{nil, nil}, "1"}}) == 1
 
-    match = {{nil, fn [x, y] -> x + y end}, [{{nil, nil}, 1}, {{nil, nil}, 1}]}
+    assert transform_match({{nil, {:transform,
+                                   {__ENV__.module, :transform_method}}},
+                            {{nil, nil}, "1"}}) == 1
+
+    match = {{nil, {:transform, fn [x, y] -> x + y end}},
+             [{{nil, nil}, 1}, {{nil, nil}, 1}]}
     assert transform_match(match) == 2
   end
 
+  # For Mod, Method transform test
+  @doc false
+  def transform_method(arg) do
+    String.to_integer(arg)
+  end
 end

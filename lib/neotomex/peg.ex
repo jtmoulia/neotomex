@@ -112,16 +112,17 @@ defmodule Neotomex.PEG do
         {{:sequence, [{:nonterminal, :spacing},
                       {:one_or_more, {:nonterminal, :definition}},
                       {:nonterminal, :EOF}]},
-         fn [:spacing, [{root, _}] = definitions, :EOF] ->
-           Neotomex.Grammar.new(root, Enum.into(definitions, %{}))
-            [:spacing, [{root, _} | _] = definitions, :EOF] ->
-           Neotomex.Grammar.new(root, Enum.into(definitions, %{}))
-         end},
+         {:transform,
+          fn [:spacing, [{root, _}] = definitions, :EOF] ->
+            Neotomex.Grammar.new(root, Enum.into(definitions, %{}))
+             [:spacing, [{root, _} | _] = definitions, :EOF] ->
+            Neotomex.Grammar.new(root, Enum.into(definitions, %{}))
+          end}},
       :definition =>
         {{:sequence, [{:nonterminal, :identifier},
                       {:nonterminal, :LEFTARROW},
                       {:nonterminal, :expression}]},
-         fn [id, _, expr] -> {id, expr} end}}
+         {:transform, fn [id, _, expr] -> {id, expr} end}}}
     Dict.merge(grammar_definitions, expression_definitions)
   end
 
@@ -133,35 +134,39 @@ defmodule Neotomex.PEG do
                       {:zero_or_more, {:sequence,
                                        [{:nonterminal, :SLASH},
                                         {:nonterminal, :sequence}]}}]},
-         fn [seq, []] -> seq
-            [seq, rest] -> {:priority, [seq | for [:SLASH, p] <- rest, do: p]}
-         end},
+         {:transform,
+          fn [seq, []] -> seq
+             [seq, rest] -> {:priority, [seq | for [:SLASH, p] <- rest, do: p]}
+          end}},
 
       :sequence =>
         {{:zero_or_more, {:nonterminal, :prefix}},
-         fn [sub_expr]                        -> sub_expr
-            sub_exprs when is_list(sub_exprs) -> {:sequence, sub_exprs}
-         end},
+         {:transform,
+          fn [sub_expr]                        -> sub_expr
+             sub_exprs when is_list(sub_exprs) -> {:sequence, sub_exprs}
+          end}},
 
       :prefix =>
         {{:sequence, [{:zero_or_one, {:priority, [{:nonterminal, :AND},
                                                   {:nonterminal, :NOT}]}},
                       {:nonterminal, :suffix}]},
-         fn [nil,  suffix] -> suffix
-            [:NOT, suffix] -> {:not, suffix}
-            [:AND, suffix] -> {:and, suffix}
-         end},
+         {:transform,
+          fn [nil,  suffix] -> suffix
+             [:NOT, suffix] -> {:not, suffix}
+             [:AND, suffix] -> {:and, suffix}
+          end}},
 
       :suffix =>
         {{:sequence, [{:nonterminal, :primary},
                       {:zero_or_one, {:priority, [{:nonterminal, :QUESTION},
                                                   {:nonterminal, :STAR},
                                                   {:nonterminal, :PLUS}]}}]},
-         fn [primary, nil]       -> primary
-            [primary, :QUESTION] -> {:zero_or_one,  primary}
-            [primary, :STAR]     -> {:zero_or_more, primary}
-            [primary, :PLUS]     -> {:one_or_more,  primary}
-         end},
+         {:transform,
+          fn [primary, nil]       -> primary
+             [primary, :QUESTION] -> {:zero_or_one,  primary}
+             [primary, :STAR]     -> {:zero_or_more, primary}
+             [primary, :PLUS]     -> {:one_or_more,  primary}
+          end}},
 
       :primary =>
         {{:priority, [{:sequence, [{:nonterminal, :identifier},
@@ -172,19 +177,21 @@ defmodule Neotomex.PEG do
                       {:nonterminal, :literal},
                       {:nonterminal, :class},
                       {:nonterminal, :DOT}]},
-         fn [id, _]               -> {:nonterminal, id}
-            [:OPEN, expr, :CLOSE] -> expr
-            x                     -> x
-         end},
+         {:transform,
+          fn [id, _]               -> {:nonterminal, id}
+             [:OPEN, expr, :CLOSE] -> expr
+             x                     -> x
+          end}},
 
       # Lexical syntax
       :identifier =>
         {{:sequence, [{:nonterminal, :ident_start},
                       {:zero_or_more, {:nonterminal, :ident_cont}},
                       {:nonterminal, :spacing}]},
-         fn [ident_start, ident_cont, :spacing] ->
-           Enum.join([ident_start | ident_cont]) |> String.to_atom
-         end},
+         {:transform,
+          fn [ident_start, ident_cont, :spacing] ->
+            Enum.join([ident_start | ident_cont]) |> String.to_atom
+          end}},
       :ident_start => {:terminal, ~r/^[a-zA-Z_]/},
       :ident_cont => {:priority, [{:nonterminal, :ident_start},
                                   {:terminal, ~r/^[0-9]/}]},
@@ -201,9 +208,10 @@ defmodule Neotomex.PEG do
                                                  {:nonterminal, :char}]}},
                                    {:terminal, ?"},
                                    {:nonterminal, :spacing}]}]},
-         fn [quot, chars, quot, :spacing] ->
-           {:terminal, Enum.join(for [nil, char] <- chars, do: char)}
-         end},
+         {:transform,
+          fn [quot, chars, quot, :spacing] ->
+            {:terminal, Enum.join(for [nil, char] <- chars, do: char)}
+          end}},
 
       :class =>
         {{:sequence, [{:terminal, ?[},
@@ -211,42 +219,46 @@ defmodule Neotomex.PEG do
                                                    {:nonterminal, :range}]}},
                                     {:terminal, ?]},
                       {:nonterminal, :spacing}]},
-         fn [?[, ranges, ?], :spacing] ->
-           Enum.join(["^[" | for [nil, r] <- ranges, do: r] ++ ["]"]) |> Regex.compile
-         end},
+         {:transform,
+          fn [?[, ranges, ?], :spacing] ->
+                 {:ok, regex} = Enum.join(["^[" | for [nil, r] <- ranges, do: r]
+                                          ++ ["]"])
+                   |> Regex.compile
+                 {:terminal, regex}
+               end}},
 
       :range =>
         {{:priority, [{:sequence, [{:nonterminal, :char},
                                    {:terminal, ?-},
                                    {:nonterminal, :char}]},
                       {:nonterminal, :char}]},
-         fn [start, ?-, stop] -> Enum.join([start, "-", stop]) end},
+         {:transform, fn [start, ?-, stop] -> Enum.join([start, "-", stop]) end}},
 
       :char => {:terminal, ~r/^./}, # TODO: Fix single character match
 
       :LEFTARROW => {{:sequence, [{:terminal, "<-"}, {:nonterminal, :spacing}]},
-                     fn _ -> :LEFTARROW end},
+                     {:transform, fn _ -> :LEFTARROW end}},
       :SLASH     => {{:sequence, [{:terminal, 47}, {:nonterminal, :spacing}]},
-                     fn _ -> :SLASH end},
+                     {:transform, fn _ -> :SLASH end}},
       :AND       => {{:sequence, [{:terminal, ?&}, {:nonterminal, :spacing}]},
-                     fn _ -> :AND end},
+                     {:transform, fn _ -> :AND end}},
       :NOT       => {{:sequence, [{:terminal, ?!}, {:nonterminal, :spacing}]},
-                     fn _ -> :NOT end},
+                     {:transform, fn _ -> :NOT end}},
       :QUESTION  => {{:sequence, [{:terminal, ??}, {:nonterminal, :spacing}]},
-                     fn _ -> :QUESTION end},
+                     {:transform, fn _ -> :QUESTION end}},
       :STAR      => {{:sequence, [{:terminal, ?*}, {:nonterminal, :spacing}]},
-                     fn _ -> :STAR end},
+                     {:transform, fn _ -> :STAR end}},
       :PLUS      => {{:sequence, [{:terminal, ?+}, {:nonterminal, :spacing}]},
-                     fn _ -> :PLUS end},
+                     {:transform, fn _ -> :PLUS end}},
       :OPEN      => {{:sequence, [{:terminal, ?(}, {:nonterminal, :spacing}]},
-                     fn _ -> :OPEN end},
+                     {:transform, fn _ -> :OPEN end}},
       :CLOSE     => {{:sequence, [{:terminal, ?)}, {:nonterminal, :spacing}]},
-                     fn _ -> :CLOSE end},
+                     {:transform, fn _ -> :CLOSE end}},
       :DOT       => {{:sequence, [{:terminal, ?.}, {:nonterminal, :spacing}]},
-                     fn _ -> :DOT end},
+                     {:transform, fn _ -> :DOT end}},
       :spacing   => {{:zero_or_more, {:priority, [{:nonterminal, :space},
                                                   {:nonterminal, :comment}]}},
-                     fn _ -> :spacing end},
+                     {:transform, fn _ -> :spacing end}},
       :comment => {:sequence, [{:terminal, ?#},
                                {:zero_or_more,
                                 {:sequence, [{:not, {:nonterminal, :EOL}},
@@ -255,13 +267,13 @@ defmodule Neotomex.PEG do
       :space => {{:priority, [{:terminal, " "},
                               {:terminal, "\t"},
                               {:nonterminal, :EOL}]},
-                 fn _ -> :space end},
+                 {:transform, fn _ -> :space end}},
       :EOL => {{:priority, [{:terminal, "\r\n"},
                             {:terminal, "\n"},
                             {:terminal, "\r"}]},
-               fn _ -> :EOL end},
+               {:transform, fn _ -> :EOL end}},
       :EOF => {{:not, {:terminal, ~r/./}},
-               fn _ -> :EOF end}
+               {:transform, fn _ -> :EOF end}}
      }
   end
 end

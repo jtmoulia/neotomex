@@ -4,20 +4,32 @@ defmodule Neotomex.ExGrammarTest do
   defmodule Number do
     use Neotomex.ExGrammar
 
-    # IO.inspect((testin string, do: string).(6))
-    # IO.inspect quote do: fn(string = 5) -> string end
-
-    #testin do: (a -> a)
-
     @root true
-    define :a, "[0-9]+" do
-      x -> x
+    define :number, "[0-9]+" do
+      xs when is_list(xs) -> Enum.join(xs) |> String.to_integer
     end
   end
 
-  # test "macro interface (Number)" do
-  #   # assert Number.parse("1") == 1
-  #   1
-  # end
+  test "the macro interface using `Number`" do
+    assert Number.parse("1") == {:ok, 1}
+    assert Number.parse!("1") == 1
+    assert Number.parse("123") == {:ok, 123}
+    assert Number.parse!("123") == 123
+    assert Number.parse("nope") == :mismatch
+  end
 
+
+  defmodule Options do
+    use Neotomex.ExGrammar
+
+    @root true
+    define :options, "'a' / 'b'" do
+      "a" -> :a
+      "b" -> :b
+    end
+  end
+
+  test "parsing with options" do
+    assert Options.parse("a") == {:ok, :a}
+  end
 end

@@ -79,7 +79,9 @@ defmodule Neotomex.Grammar do
                     | {:not, expression}
 
   @type definition :: {nonterminal, expression}
-  @type transform :: ((term) -> {:ok, term})
+  @type transform :: {:transform, ((term) -> {:ok, term})}
+                   | {:transform, {atom(), atom()}}
+                   | nil
   @type expr_trans :: {expression, transform}
 
 
@@ -121,7 +123,7 @@ defmodule Neotomex.Grammar do
   ## Examples
 
       iex> grammar = new(:root, %{root: {{:terminal, ~r/^[0-9]+/},
-      ...>                               &String.to_integer/1}})
+      ...>                               {:transform, &String.to_integer/1}}})
       iex> parse(grammar, "1")
       {:ok, 1, ""}
       iex> parse(grammar, "100")
@@ -160,10 +162,10 @@ defmodule Neotomex.Grammar do
 
   ## Examples
 
-      iex> transform_match({{nil, fn x -> String.to_integer(x) end},
+      iex> transform_match({{nil, {:transform, fn x -> String.to_integer(x) end}},
       ...>                  {{nil, nil}, "1"}})
       1
-      iex> transform_match({{nil, fn [x, y] -> x + y end},
+      iex> transform_match({{nil, {:transform, fn [x, y] -> x + y end}},
       ...>                  [{{nil, nil}, 1}, {{nil, nil}, 1}]})
       2
   """
@@ -181,14 +183,14 @@ defmodule Neotomex.Grammar do
   def transform_match({{_, nil}, match}) do
     transform_match(match)
   end
-  def transform_match({{_, transform_fn}, matches}) when is_list(matches) do
-    transform_fn.(for match <- matches, do: transform_match(match))
+  def transform_match({{_, transform}, matches}) when is_list(matches) do
+    apply_transform(transform, (for match <- matches, do: transform_match(match)))
   end
-  def transform_match({{_, transform_fn}, match}) when is_binary(match) do
-    transform_fn.(match)
+  def transform_match({{_, transform}, match}) when is_binary(match) do
+    apply_transform(transform, match)
   end
-  def transform_match({{_, transform_fn}, match}) do
-    transform_fn.(transform_match(match))
+  def transform_match({{_, transform}, match}) do
+    apply_transform(transform, transform_match(match))
   end
 
 
@@ -425,10 +427,25 @@ defmodule Neotomex.Grammar do
   end
 
 
+  # Apply the transform to the provided arg
+  @doc false
+  defp apply_transform({:transform, {module, method}}, arg)
+      when is_atom(module) and is_atom(method) do
+    apply(module, method, [arg])
+  end
+  defp apply_transform({:transform, transform_fn}, arg)
+      when is_function(transform_fn) do
+    transform_fn.(arg)
+  end
+
+
   @doc false
   defp validate(_grammar, []), do: :ok
-  defp validate(grammar, [{id, {expr, transform}} | rest])
-      when is_function(transform) or transform == nil do
+  # Strip out transforms, which should be either nil or {:transform, _}
+  defp validate(grammar, [{id, {expr, {:transform, _}}} | rest]) do
+    validate(grammar, [{id, expr} | rest])
+  end
+  defp validate(grammar, [{id, {expr, nil}} | rest]) do
     validate(grammar, [{id, expr} | rest])
   end
   defp validate(grammar, [{id, expr} | rest]) do
