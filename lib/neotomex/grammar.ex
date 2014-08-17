@@ -259,54 +259,6 @@ defmodule Neotomex.Grammar do
   end
 
 
-  ## Interface Macros [TODO]
-
-  @doc false
-  defmacro __using__(_opts) do
-    quote do
-      import Neotomex.Grammar, only: :macros
-      @_neotomex_grammar Neotomex.Grammar.new()
-      @before_compile Neotomex.Grammar
-    end
-  end
-
-  @doc false
-  defmacro __before_compile__(_env) do
-    quote unquote: false do
-      IO.inspect @_neotomex_grammar
-      IO.inspect Macro.escape(@_neotomex_grammar)
-      def parse(input) do
-        IO.puts "YEAH"
-        Neotomex.Grammar.parse(unquote(Macro.escape(@_neotomex_grammar)), input)
-      end
-    end
-  end
-
-  defmacro testin(body) do
-    IO.inspect(body[:do])
-    body[:do]
-  end
-
-
-  @doc """
-  Create a new definition and add it to the module's grammar.
-  """
-  defmacro definition(identifier, _expression, opts) do
-    #expression = parse_peg_expression(expression)
-    expression  = {:terminal, ~r/^[0-9]+/}
-    expr_trans = case opts[:transform] do
-                   nil ->
-                     expression
-                   transform_fn ->
-                     {Macro.escape(expression), transform_fn}
-                 end
-    new_definition = {identifier, expr_trans}
-    quote bind_quoted: [new_definition: new_definition] do
-      @_neotomex_grammar Neotomex.Grammar.add_rule(@_neotomex_grammar, new_definition)
-    end
-  end
-
-
   ## Private Functions
 
   defp match({identifier, _} = expr, grammar, input) when is_atom(identifier) do
@@ -373,7 +325,7 @@ defmodule Neotomex.Grammar do
   defp match({{:sequence, _}, _} = expr_trans, grammar, input) do
     match_sequence(expr_trans, grammar, input)
   end
- 
+
   defp match({{:priority, _}, _} = expr_trans, grammar, input) do
     match_priorities(expr_trans, grammar, input)
   end

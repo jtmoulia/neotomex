@@ -55,12 +55,7 @@ defmodule Neotomex.PEG do
   """
   @spec parse(binary()) :: {:ok, Neotomex.Grammar.grammar()}
   def parse(input) do
-    case Neotomex.Grammar.parse(grammar, input) do
-      {:ok, grammar, ""} ->
-        {:ok, grammar}
-      otherwise ->
-        otherwise
-    end
+    unwrap_parse(grammar, input)
   end
 
 
@@ -69,16 +64,50 @@ defmodule Neotomex.PEG do
 
   This could be useful for basic validation of grammars.
   """
+  @spec match(binary()) :: {:ok, Neotomex.Grammar.match(), binary()}
   def match(input) do
     Neotomex.Grammar.match(grammar, input)
   end
 
 
   @doc """
+  Parse the input as a PEG expression rather than a full PEG grammar.
+  """
+  def parse_expression(input) do
+    unwrap_parse(expression_grammar, input)
+  end
+
+
+  @doc """
   PEG parser grammar defined in Neotomex internal PEG format
   """
+  @spec grammar :: Neotomex.Grammar.grammar()
   def grammar do
-    definitions =
+    Neotomex.Grammar.new(:grammar, grammar_definitions)
+  end
+
+  def expression_grammar do
+    Neotomex.Grammar.new(:expression, expression_definitions)
+  end
+
+
+  ## Private functions
+
+  ## Helper for simplifying the parse function return
+  @doc false
+  defp unwrap_parse(grammar, input) do
+    case Neotomex.Grammar.parse(grammar, input) do
+      {:ok, grammar, ""} ->
+        {:ok, grammar}
+      otherwise ->
+        otherwise
+    end
+  end
+
+  # Definitions for parsing a PEG grammar
+  @doc false
+  defp grammar_definitions do
+    grammar_definitions =
     %{:grammar =>
         {{:sequence, [{:nonterminal, :spacing},
                       {:one_or_more, {:nonterminal, :definition}},
@@ -92,9 +121,14 @@ defmodule Neotomex.PEG do
         {{:sequence, [{:nonterminal, :identifier},
                       {:nonterminal, :LEFTARROW},
                       {:nonterminal, :expression}]},
-         fn [id, _, expr] -> {id, expr} end},
+         fn [id, _, expr] -> {id, expr} end}}
+    Dict.merge(grammar_definitions, expression_definitions)
+  end
 
-      :expression =>
+  # Definitions for parsing a PEG expression
+  @doc false
+  defp expression_definitions do
+    %{:expression =>
         {{:sequence, [{:nonterminal, :sequence},
                       {:zero_or_more, {:sequence,
                                        [{:nonterminal, :SLASH},
@@ -229,8 +263,5 @@ defmodule Neotomex.PEG do
       :EOF => {{:not, {:terminal, ~r/./}},
                fn _ -> :EOF end}
      }
-
-    Neotomex.Grammar.new(:grammar, definitions)
   end
-
 end

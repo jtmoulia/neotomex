@@ -4,23 +4,6 @@ defmodule Neotomex.GrammarTest do
                                   transform_match: 1, validate: 1]
   doctest Neotomex.Grammar
 
-  # defmodule Number do
-  #   use Neotomex.Grammar
-
-  #   # IO.inspect((testin string, do: string).(6))
-  #   # IO.inspect quote do: fn(string = 5) -> string end
-
-  #   testin do: (a -> a)
-  #   definition :root, "[0-9]+",
-  #     transform: fn(x) -> String.to_integer(x) end
-
-  # end
-
-  # test "macro interface (Number)" do
-  #   assert Number.parse("1") == 1
-  # end
-
-
   test "parse" do
       grammar = new(:root, %{root: {:terminal, ~r/^[0-9]+/}})
       assert parse(grammar, "1") == {:ok, "1", ""}

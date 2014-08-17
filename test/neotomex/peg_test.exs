@@ -6,7 +6,7 @@ defmodule Neotomex.PEGTest do
     assert Neotomex.Grammar.validate(Neotomex.PEG.grammar) == :ok
   end
 
-  test "match PEG grammar using neotomex PEG metagrammar" do
+  test "match PEG grammar using Neotomex PEG metagrammar" do
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- a")
     assert {:ok, _, ""} = Neotomex.PEG.match("A1 <- abra")
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- 'a'")
@@ -15,7 +15,7 @@ defmodule Neotomex.PEGTest do
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- [a-zA-Z0-9]")
   end
 
-  test "parse PEG grammar using neotomex PEG metagrammar" do
+  test "parsing PEG grammars using the Neotomex PEG metagrammar" do
     assert Neotomex.PEG.parse("a <- 'a'") ==
       {:ok, Neotomex.Grammar.new(:a, %{a: {:terminal, "a"}})}
     assert Neotomex.PEG.parse("a <- !'a'") ==
@@ -45,6 +45,10 @@ defmodule Neotomex.PEGTest do
     assert Neotomex.PEG.parse("a <- a\nb <- b") ==
       {:ok, Neotomex.Grammar.new(:a, %{a: {:nonterminal, :a},
                                        b: {:nonterminal, :b}})}
+  end
+
+  test "parsing PEG expression using the PEG expression grammar" do
+    assert Neotomex.PEG.parse_expression("'a'") == {:ok, {:terminal, "a"}}
   end
 
   test "all together now: parse a PEG grammar, and use it to parse" do
