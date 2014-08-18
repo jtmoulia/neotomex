@@ -9,9 +9,11 @@ defmodule Neotomex.PEGTest do
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- a")
     assert {:ok, _, ""} = Neotomex.PEG.match("A1 <- abra")
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- 'a'")
+    assert {:ok, _, ""} = Neotomex.PEG.match("A <- \"a\"")
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- B 'a'\rB <- 'b'")
-    assert {:ok, _, ""} = Neotomex.PEG.match("A <- [a-zA-Z]")
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- [a-zA-Z0-9]")
+    assert {:ok, _, ""} = Neotomex.PEG.match(~S"A <- [aA \t\n\r]")
+    assert {:ok, _, ""} = Neotomex.PEG.match("A <- .")
   end
 
   test "parsing PEG grammars using the Neotomex PEG metagrammar" do

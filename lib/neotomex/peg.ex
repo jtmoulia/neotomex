@@ -179,6 +179,7 @@ defmodule Neotomex.PEG do
          {:transform,
           fn [id, _]               -> {:nonterminal, id}
              [:OPEN, expr, :CLOSE] -> expr
+             :DOT                  -> {:terminal, ~r/^./}
              x                     -> x
           end}},
 
@@ -231,9 +232,29 @@ defmodule Neotomex.PEG do
                                    {:terminal, ?-},
                                    {:nonterminal, :char}]},
                       {:nonterminal, :char}]},
-         {:transform, fn [start, ?-, stop] -> Enum.join([start, "-", stop]) end}},
+         {:transform,
+          fn [start, ?-, stop] -> Enum.join([start, "-", stop])
+             char              -> char
+          end}},
 
-      :char => {:terminal, ~r/^./}, # TODO: Fix single character match
+      # TODO: Fix single character match
+      :char =>
+        {{:priority, [{:sequence, [{:terminal, "\\"},
+                                   {:terminal, ~r/^[nrts\[\]\\'"]/}]},
+                      {:sequence, [{:not, {:terminal, "\\"}},
+                                   {:terminal, ~r/^./}]}]},
+         {:transform,
+          fn [nil, char] -> char
+             ["\\", "n"] -> "\n"
+             ["\\", "r"] -> "\r"
+             ["\\", "t"] -> "\t"
+             ["\\", "s"] -> "\t"
+             ["\\", "["] -> "["
+             ["\\", "]"] -> "]"
+             ["\\", "\\"] -> "\\"
+             ["\\", "\""] -> "\""
+          end
+        }},
 
       :LEFTARROW => {{:sequence, [{:terminal, "<-"}, {:nonterminal, :spacing}]},
                      {:transform, fn _ -> :LEFTARROW end}},
