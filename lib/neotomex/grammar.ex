@@ -89,14 +89,14 @@ defmodule Neotomex.Grammar do
   # A grammar contains a root label, and a map of rules keyed by nonterminal label
   @type grammar :: %{root: nonterminal | false,
                      definitions: %{nonterminal => expression},
-                     memos: pid() | false}
+                     cache: pid() | false}
 
   @doc """
   Returns an empty grammar.
   """
   @spec new :: grammar
-  def new(root \\ false, definitions \\ %{}, memos \\ false) do
-    %{root: root, definitions: definitions, memos: memos}
+  def new(root \\ false, definitions \\ %{}, cache \\ %{}) do
+    %{root: root, definitions: definitions, cache: cache}
   end
 
 
@@ -129,7 +129,7 @@ defmodule Neotomex.Grammar do
 
   """
   @spec parse(grammar, binary) :: {:ok, any, binary} | :mismatch | {:error, term}
-  def parse(grammar, input) do
+  def parse(grammar, input) when is_binary(input) do
     case match(grammar, input) do
       {:ok, match, rest} ->
         {:ok, transform_match(match), rest}
@@ -274,7 +274,7 @@ defmodule Neotomex.Grammar do
       when is_integer(char) do
     {:ok, {expr_trans, char}, rest}
   end
-  defp match({{:terminal, char}, _}, _, rest) when is_integer(char) do
+  defp match({{:terminal, char}, _}, _, _) when is_integer(char) do
     :mismatch
   end
   defp match({{:terminal, terminal}, _} = expr_trans, _, input)

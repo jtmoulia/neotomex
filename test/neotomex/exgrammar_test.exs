@@ -35,4 +35,58 @@ defmodule Neotomex.ExGrammarTest do
     assert Options.parse("a") == {:ok, :a}
     assert Options.parse("c") == :mismatch
   end
+
+
+  defmodule Stripper do
+    @moduledoc """
+    For testing transforms that match against `_`.
+    """
+    use Neotomex.ExGrammar
+
+    @root true
+    define :options, "'a' / 'b'" do
+      "a" -> :a
+      _   -> false
+    end
+  end
+
+  test "test throwaway matches in transform" do
+    assert Stripper.parse("a") == {:ok, :a}
+    assert Stripper.parse("b") == {:ok, false}
+  end
+
+
+  defmodule FunCaller do
+    use Neotomex.ExGrammar
+
+    @root true
+    define :number, "digit+" do
+      digits -> list_to_number(digits)
+    end
+
+    define :digit, "[0-9]"
+
+    defp list_to_number(digits) do
+      digits |> Enum.join |> String.to_integer
+    end
+  end
+
+  test "calling a module function from transform" do
+    assert FunCaller.parse("42") == {:ok, 42}
+  end
+
+
+  defmodule OneLiner do
+    @moduledoc """
+    For testing one liner define.
+    """
+    use Neotomex.ExGrammar
+
+    @root true
+    define :char, ".", do: (char -> char)
+  end
+
+  test "one liner single character match" do
+    assert OneLiner.parse("c") == {:ok, "c"}
+  end
 end
