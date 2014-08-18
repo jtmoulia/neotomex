@@ -1,6 +1,5 @@
 defmodule Neotomex.PEGTest do
   use ExUnit.Case
-  require Logger
 
   test "validate the PEG grammar" do
     assert Neotomex.Grammar.validate(Neotomex.PEG.grammar) == :ok

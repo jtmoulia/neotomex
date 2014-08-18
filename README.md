@@ -1,4 +1,4 @@
-# Neotomex
+# Neotomex [![hex.pm version](https://img.shields.io/hexpm/v/neotomex.svg?style=flat)](https://hex.pm/packages/neotomex) [![hex.pm version](https://img.shields.io/hexpm/dt/neotomex.svg?style=flat)](https://hex.pm/packages/neotomex)
 
 **Obligatory Alpha Quality Disclaimer**
 
@@ -47,6 +47,13 @@ iex> h Neotomex.ExGrammar
 ```
 
 Look in `examples/` for existing usage.
+
+
+## Roadmap
+
+- Packrat parsing
+- Add more examples. JSON? IMAP? Cooking Recipes?
+- Match labels a la neotoma (e.g. a:match)
 
 
 Copyright (c) Thomas Moulia, 2014

@@ -4,10 +4,11 @@ defmodule Neotomex.Mixfile do
 
   def project do
     [app: :neotomex,
-     version: "0.0.1",
+     version: "0.1.0",
      elixir: "~> 0.15.0",
      deps: deps,
-     description: description]
+     description: description,
+     package: package]
   end
 
   def application do
@@ -20,7 +21,13 @@ defmodule Neotomex.Mixfile do
 
   defp description do
     """
-    A PEG implementation.
+    A PEG parser/transformer with a pleasant Elixir DSL.
     """
+  end
+
+  defp package do
+    [contributors: ["Thomas Moulia"],
+     licenses: ["BSD 3-Clause License"],
+     links: %{github: "https://github.com/jtmoulia/neotomex"}]
   end
 end

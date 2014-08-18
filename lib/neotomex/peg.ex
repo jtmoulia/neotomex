@@ -5,7 +5,6 @@ defmodule Neotomex.PEG do
   Implements a PEG specification parser using the internal PEG
   specification, and functions for parsing PEG specifications.
   """
-  require Logger
 
   # Specification of PEG, in PEG:
 

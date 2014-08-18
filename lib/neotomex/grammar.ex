@@ -1,6 +1,4 @@
 defmodule Neotomex.Grammar do
-  require Logger
-
   @moduledoc """
   # Neotomex.Grammar
 
@@ -274,21 +272,17 @@ defmodule Neotomex.Grammar do
   # Terminal nodes can be a char, string, or regex
   defp match({{:terminal, char}, _} = expr_trans, _, <<char, rest :: binary>>)
       when is_integer(char) do
-    Logger.debug "MATCH: termianl char [#{char}]"
     {:ok, {expr_trans, char}, rest}
   end
   defp match({{:terminal, char}, _}, _, rest) when is_integer(char) do
-    Logger.debug "MISMATCH: terminal char [#{[char]}] against [#{rest}]"
     :mismatch
   end
   defp match({{:terminal, terminal}, _} = expr_trans, _, input)
       when is_binary(terminal) do
     case String.split_at(input, String.length(terminal)) do
       {^terminal, rest} ->
-        Logger.debug "MATCH: terminal binary [#{terminal}] against [#{input}]"
         {:ok, {expr_trans, terminal}, rest}
       {_, _} ->
-        Logger.debug "MISMATCH: terminal binary [#{terminal}] against [#{input}]"
         :mismatch
     end
   end
@@ -313,13 +307,10 @@ defmodule Neotomex.Grammar do
 
   defp match({{:nonterminal, nonterminal}, _} = expr_trans,
              %{:definitions => definitions} = grammar, input) do
-    Logger.debug "Attempting nonterminal match for #{nonterminal}"
     case match(definitions[nonterminal], grammar, input) do
       {:ok, match, rest} ->
-        Logger.debug "MATCH nonterminal: [#{nonterminal}] against [#{input}], leaving [#{rest}]"
         {:ok, {expr_trans, match}, rest}
       otherwise ->
-        Logger.debug "MISMATCH nonterminal: [#{nonterminal}] against [#{input}]"
         otherwise
     end
   end

@@ -33,5 +33,6 @@ defmodule Neotomex.ExGrammarTest do
 
   test "parsing with options" do
     assert Options.parse("a") == {:ok, :a}
+    assert Options.parse("c") == :mismatch
   end
 end
