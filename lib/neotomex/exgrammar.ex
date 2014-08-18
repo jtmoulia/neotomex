@@ -11,12 +11,12 @@ defmodule Neotomex.ExGrammar do
         use Neotomex.ExGrammar
 
         @root true
-        define :root, "[0-9]+" do
-          xs when is_list(xs) -> Enum.join(xs) |> String.to_integer
+        define :digits, "[0-9]+" do
+          digits when is_list(digits) -> digits |> Enum.join |> String.to_integer
         end
       end
 
-      Number.parse("42") = 42
+      Number.parse!("42") = 42
 
   Check the `examples/` folder for slightly more useful examples
   of grammar specifications via `ExGrammar`.

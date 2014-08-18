@@ -5,9 +5,11 @@ defmodule Neotomex.ExGrammarTest do
     use Neotomex.ExGrammar
 
     @root true
-    define :number, "[0-9]+" do
-      xs when is_list(xs) -> Enum.join(xs) |> String.to_integer
+    define :number, "digit+" do
+      digits -> digits |> Enum.join |> String.to_integer
     end
+
+    define :digit, "[0-9]"
   end
 
   test "the macro interface using `Number`" do
