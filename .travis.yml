@@ -1,0 +1,9 @@
+language: erlang
+otp_release:
+- 17.1
+- 17.0
+before_install:
+- git clone https://github.com/elixir-lang/elixir -b v0.15.0
+- make -C elixir
+before_script: "export PATH=`pwd`/elixir/bin:$PATH"
+script: mix test

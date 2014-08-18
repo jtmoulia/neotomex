@@ -1,4 +1,4 @@
-# Neotomex [![hex.pm version](https://img.shields.io/hexpm/v/neotomex.svg?style=flat)](https://hex.pm/packages/neotomex) [![hex.pm version](https://img.shields.io/hexpm/dt/neotomex.svg?style=flat)](https://hex.pm/packages/neotomex)
+# Neotomex [![hex.pm version](https://img.shields.io/hexpm/v/neotomex.svg?style=flat)](https://hex.pm/packages/neotomex) [![hex.pm downloads](https://img.shields.io/hexpm/dt/neotomex.svg?style=flat)](https://hex.pm/packages/neotomex) [![travis.ci build status](https://img.shields.io/travis/jtmoulia/neotomex.svg?style=flat)](https://travis-ci.org/jtmoulia/neotomex)
 
 **Obligatory Alpha Quality Disclaimer**
 
