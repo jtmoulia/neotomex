@@ -3,8 +3,19 @@ defmodule Neotomex.PEG do
   # Neotomex.PEG
 
   Implements a PEG specification parser using the internal PEG
-  specification, and functions for parsing PEG specifications.
-  """
+  specification, and functions for parsing PEG grammars. There
+  are separate functions for parsing entire grammars or
+  only expressions.
+
+  Neotomex's expressions add onto Bryan Ford's original PEG
+  grammar specification with:
+
+  - **Expression Pruning** allows for matching expressions
+    which aren't passed into the transform function. They're
+    indicated by bracketing an expression with angle brackets,
+    i.e. `'<' expression '>'`
+
+"""
 
   # Specification of PEG, in PEG:
 
@@ -12,7 +23,7 @@ defmodule Neotomex.PEG do
   # Grammar    <- Spacing Definition+ EndOfFile
   # Definition <- Identifier LEFTARROW Expression
   # Expression <- Sequence (SLASH Sequence)*
-  # Sequence   <- Prefix*
+  # Sequence   <- (('<' Prefix '>') / Prefix)*
   # Prefix     <- (AND / NOT)? Suffix
   # Suffix     <- Primary (QUESTION / STAR / PLUS)?
   # Primary    <- Identifier !LEFTARROW
@@ -41,6 +52,8 @@ defmodule Neotomex.PEG do
   # PLUS       <- '+' Spacing
   # OPEN       <- '(' Spacing
   # CLOSE      <- ')' Spacing
+  # OPENANGLE  <- '<' Spacing
+  # CLOSEANGLE <- '>' Spacing
   # DOT        <- '.' Spacing
   # Spacing    <- (Space / Comment)*
   # Comment    <- '#' (!EndOfLine .)* EndOfLine
@@ -139,10 +152,20 @@ defmodule Neotomex.PEG do
           end}},
 
       :sequence =>
-        {{:zero_or_more, {:nonterminal, :prefix}},
+      {{:zero_or_more, {:priority, [{:sequence,
+                                     [{:prune, {:nonterminal, :OPENANGLE}},
+                                      {:nonterminal, :prefix},
+                                      {:prune, {:nonterminal, :CLOSEANGLE}}]},
+                                    {:nonterminal, :prefix}]}},
          {:transform,
-          fn [sub_expr]                        -> sub_expr
-             sub_exprs when is_list(sub_exprs) -> {:sequence, sub_exprs}
+          # TODO - this is pretty ugly and could use some refactoring
+          fn [[sub_expr]]                      -> {:prune, sub_expr}
+             [sub_expr]                        -> sub_expr
+             sub_exprs when is_list(sub_exprs) ->
+            {:sequence, (for e <- sub_exprs do
+                           (case e do [e] -> {:prune, e}
+                                      e   -> e
+                            end) end)}
           end}},
 
       :prefix =>
@@ -274,6 +297,10 @@ defmodule Neotomex.PEG do
                      {:transform, fn _ -> :OPEN end}},
       :CLOSE     => {{:sequence, [{:terminal, ?)}, {:nonterminal, :spacing}]},
                      {:transform, fn _ -> :CLOSE end}},
+      :OPENANGLE => {{:sequence, [{:terminal, ?<}, {:nonterminal, :spacing}]},
+                     {:transform, fn _ -> :OPENANGLE end}},
+      :CLOSEANGLE => {{:sequence, [{:terminal, ?>}, {:nonterminal, :spacing}]},
+                      {:transform, fn _ -> :CLOSEANGLE end}},
       :DOT       => {{:sequence, [{:terminal, ?.}, {:nonterminal, :spacing}]},
                      {:transform, fn _ -> :DOT end}},
       :spacing   => {{:zero_or_more, {:priority, [{:nonterminal, :space},

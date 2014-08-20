@@ -134,6 +134,10 @@ defmodule Neotomex.GrammarTest do
     match = {{nil, {:transform, fn [x, y] -> x + y end}},
              [{{nil, nil}, 1}, {{nil, nil}, 1}]}
     assert transform_match(match) == 2
+
+    match = {{nil, {:transform, fn [x, y] -> x + y end}},
+             [{{nil, nil}, 1}, {{nil, nil}, 1}, {{nil, nil}, {:prune, 1}}]}
+    assert transform_match(match) == 2
   end
 
   # For Mod, Method transform test

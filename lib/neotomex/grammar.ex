@@ -43,6 +43,8 @@ defmodule Neotomex.Grammar do
     one times.
   - `and`: matches when its subexpression matches. Consumes no input.
   - `not`: matches when its subexpression does not match. Consumes no input.
+  - `prune`: matches when it's subexpression matches, however the match
+    is pruned from the result.
 
   A grammar's definitions come together to form a conditional directed graph.
   Matching starts at the root node and performs a depth first search for the
@@ -75,6 +77,7 @@ defmodule Neotomex.Grammar do
                     | {:zero_or_one, expression}
                     | {:and, expression}
                     | {:not, expression}
+                    | {:prune, expression}
 
   @type definition :: {nonterminal, expression}
   @type transform :: {:transform, ((term) -> {:ok, term})}
@@ -168,21 +171,20 @@ defmodule Neotomex.Grammar do
       2
   """
   @spec transform_match(match) :: any
-  def transform_match(nil) do
-    nil
-  end
+  def transform_match(nil),              do: nil
+  def transform_match({_, {:prune, _}}), do: nil
   def transform_match({{_, nil}, terminal})
       when is_binary(terminal) or is_integer(terminal) do
     terminal
   end
   def transform_match({{_, nil}, matches}) when is_list(matches) do
-    for match <- matches, do: transform_match(match)
+    transform_prune(matches)
   end
   def transform_match({{_, nil}, match}) do
     transform_match(match)
   end
   def transform_match({{_, transform}, matches}) when is_list(matches) do
-    apply_transform(transform, (for match <- matches, do: transform_match(match)))
+    apply_transform(transform, transform_prune(matches))
   end
   def transform_match({{_, transform}, match}) when is_binary(match) do
     apply_transform(transform, match)
@@ -365,6 +367,16 @@ defmodule Neotomex.Grammar do
     end
   end
 
+  defp match({{:prune, expression}, _} = expr_trans, grammar, input) do
+    case match(expression, grammar, input) do
+      {:ok, match, input} ->
+        {:ok, {expr_trans, {:prune, match}}, input}
+      otherwise ->
+        otherwise
+    end
+  end
+
+
   # Helper for parsing a sequence of expressions
   defp match_sequence({{:sequence, expressions}, _} = expr_trans, grammar, input) do
     match_sequence(expr_trans, grammar, input, expressions, [])
@@ -429,6 +441,17 @@ defmodule Neotomex.Grammar do
     transform_fn.(arg)
   end
 
+  # Helper for applying transform match while pruning
+  @doc false
+  defp transform_prune(matches) do
+    for match <- matches,
+        (case match do
+           {_, {:prune, _}} -> false
+           _                -> true
+         end),
+        do: transform_match(match)
+  end
+
 
   @doc false
   defp validate(_grammar, []), do: :ok
@@ -472,7 +495,8 @@ defmodule Neotomex.Grammar do
         or wrap_expr_type == :zero_or_one
         or wrap_expr_type == :one_or_more
         or wrap_expr_type == :not
-        or wrap_expr_type == :and do
+        or wrap_expr_type == :and
+        or wrap_expr_type == :prune do
     # handle a expr which is wraps a single expression
     if is_tuple(expr) do
       validate_expr(grammar, expr)
