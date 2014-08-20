@@ -87,6 +87,37 @@ defmodule Neotomex.ExGrammarTest do
   end
 
   test "one liner single character match" do
-    assert OneLiner.parse("c") == {:ok, "c"}
+    assert OneLiner.parse("a") == {:ok, "a"}
+    assert OneLiner.parse("b") == {:ok, "b"}
+    assert OneLiner.parse("!") == {:ok, "!"}
+  end
+
+
+  defmodule UncalledPruner do
+    @moduledoc """
+    For testing expression pruning of uncalled expressions.
+    """
+    use Neotomex.ExGrammar
+
+    @root true
+    define :char, "<.>", do: ([:wont, :be] -> :called)
+  end
+
+  test "a single, non-sequence match won't be called." do
+    assert UncalledPruner.parse("a") == {:ok, nil}
+  end
+
+  defmodule Pruner do
+    @moduledoc """
+    For testing list pruning
+    """
+    use Neotomex.ExGrammar
+
+    @root true
+    define :char, "<.> . <.>", do: ([middle] -> middle)
+  end
+
+  test "pruning out expressions" do
+    assert Pruner.parse("abc") == {:ok, "b"}
   end
 end

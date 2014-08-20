@@ -12,24 +12,24 @@ defmodule JSON do
   end
 
   define :object,
-      "'{' space? pair (space? ',' space? pair)* space? '}' / '{' space? '}'" do
-    [_, _, _]                  -> HashDict.new()
-    [_, _, head, others, _, _] ->
-      Enum.into([head | for [_, _, _, pair] <- others, do: pair], HashDict.new)
+      "<'{'> <space?> pair (<space?> <','> <space?> pair)* <space?> <'}'> / <'{'> <space?> <'}'>" do
+    [] -> HashDict.new()
+    [head, others] ->
+      Enum.into([head | for [pair] <- others, do: pair], HashDict.new)
   end
 
-  define :pair, "space? string space? ':' space? json_value space?" do
-    [_, string, _, _, _, val, _] -> {String.to_atom(string), val}
+  define :pair, "<space?> string <space?> <':'> <space?> json_value <space?>" do
+    [string, val] -> {String.to_atom(string), val}
   end
 
   # TODO - not properly matching escape seqs
-  define :string, "'\"' (!'\"' ('\\\\' / '\\\"' / .))* '\"'" do
-    [_, chars, _] -> Enum.join(for [nil, c] <- chars, do: c)
+  define :string, "<'\"'> (<!'\"'> ('\\\\' / '\\\"' / .))* <'\"'>" do
+    [chars] -> Enum.join(for [c] <- chars, do: c)
   end
 
-  define :array, "'[' space? json_value (space? ',' space? json_value)* space? ']' / '[' space? ']'" do
-    [_, _, _] -> []
-    [_, _, head, rest, _, _] -> [head | for [_, _, _, val] <- rest, do: val]
+  define :array, "<'['> <space?> json_value (<space?> <','> <space?> json_value)* <space?> <']'> / <'['> space? <']'>" do
+    [] -> []
+    [head, rest] -> [head | for [val] <- rest, do: val]
   end
 
 
@@ -54,9 +54,9 @@ defmodule JSON do
     [suffix, digits] -> iolist_to_integer([suffix | digits])
   end
 
-  define :e, "[eE] ('+' / '-')?" do
-    [_, nil]    -> "+"
-    [_, suffix] -> suffix
+  define :e, "<[eE]> ('+' / '-')?" do
+    [nil]    -> "+"
+    [suffix] -> suffix
   end
 
   define :frac,           "'.' digit+",  do: ([head, rest] -> [head | rest])
@@ -77,6 +77,9 @@ defmodule JSON do
   end
 
 
+  @doc """
+  JSON parsing REPL.
+  """
   def repl do
     input = IO.gets "Enter a valid JSON expression: "
     case input |> String.strip |> parse do
@@ -87,7 +90,23 @@ defmodule JSON do
     end
     repl
   end
+
+  @doc """
+  Basic JSON parsing tests.
+  """
+  def test do
+    {:ok, 1} = parse("1")
+    # TODO should this return an integer?
+    {:ok, 27.0} = parse("3e3")
+    {:ok, 3.3} = parse("3.3")
+
+    {:ok, [1]} = parse("[1]")
+    dict = ["a": 1] |> Enum.into(HashDict.new)
+    {:ok, ^dict} = parse("{\"a\": 1}")
+  end
 end
+
+JSON.test
 
 IO.puts "A JSON Parser. Because all the cool kids are doing it."
 IO.puts "======================================================\n"

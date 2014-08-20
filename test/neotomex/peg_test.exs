@@ -14,6 +14,9 @@ defmodule Neotomex.PEGTest do
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- [a-zA-Z0-9]")
     assert {:ok, _, ""} = Neotomex.PEG.match(~S"A <- [aA \t\n\r]")
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- .")
+    assert {:ok, _, ""} = Neotomex.PEG.match("A <- . .")
+    assert {:ok, _, ""} = Neotomex.PEG.match("A <- <.>")
+    assert {:ok, _, ""} = Neotomex.PEG.match("A <- <.> . <.>")
   end
 
   test "parsing PEG grammars using the Neotomex PEG metagrammar" do
@@ -46,6 +49,13 @@ defmodule Neotomex.PEGTest do
     assert Neotomex.PEG.parse("a <- a\nb <- b") ==
       {:ok, Neotomex.Grammar.new(:a, %{a: {:nonterminal, :a},
                                        b: {:nonterminal, :b}})}
+
+    # assert Neotomex.PEG.parse("a <- <a>") ==
+    #   {:ok, Neotomex.Grammar.new(:a, %{a: {:prune, {:nonterminal, :a}}})}
+    # assert Neotomex.PEG.parse("a <- <a / b>") ==
+    #   {:ok, Neotomex.Grammar.new(:a, %{a: {:prune,
+    #                                        {:priority, [nonterminal: :a,
+    #                                                     nonterminal: :b]}}})}
   end
 
   test "parsing PEG expression using the PEG expression grammar" do

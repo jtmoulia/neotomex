@@ -10,19 +10,19 @@ defmodule Arithmetic do
   use Neotomex.ExGrammar
 
   @root true
-  define :additive, "multitive '+' additive / multitive" do
+  define :additive, "multitive <'+'> additive / multitive" do
     int when is_integer(int) -> int
-    [x, "+", y]              -> x + y
+    [x, y]              -> x + y
   end
 
-  define :multitive, "primary '*' multitive / primary" do
+  define :multitive, "primary <'*'> multitive / primary" do
     int when is_integer(int) -> int
-    [x, "*", y]              -> x * y
+    [x, y]              -> x * y
   end
 
-  define :primary, "('(' additive ')') / decimal" do
+  define :primary, "(<'('> additive <')'>) / decimal" do
     int when is_integer(int) -> int
-    [_, additive, _]         -> additive
+    [additive]               -> additive
   end
 
   define :decimal, "[0-9]+" do
@@ -40,8 +40,14 @@ defmodule Arithmetic do
     end
     repl
   end
+
+  def test do
+    {:ok, 2} = parse("1+1")
+    {:ok, 7} = parse("1+2*3")
+  end
 end
 
+Arithmetic.test
 
 IO.puts "Neotomex Arithmetic Parser!"
 IO.puts "no spaces, no division, no subtraction"
