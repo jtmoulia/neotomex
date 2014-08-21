@@ -74,10 +74,63 @@ defmodule Neotomex.ExGrammar do
   defmacro __before_compile__(_env) do
     quote unquote: false do
       if @_root_def == nil do
-        throw {:error, :no_root}
+        raise Neotomex.Error, message: "no root in grammar"
       end
 
       @_neotomex_grammar Neotomex.Grammar.new(@_root_def, @_neotomex_definitions)
+
+      def grammar do
+        unquote(Macro.escape(@_neotomex_grammar))
+      end
+
+
+      @doc """
+      Parse the input using the defined grammar.
+      """
+      @spec parse(binary) :: {:ok, any} | :mismatch | {:error, term}
+      def parse(input) do
+        case Neotomex.Grammar.parse(grammar, input) do
+          {:ok, result, ""} ->
+            {:ok, result}
+          otherwise ->
+            otherwise
+        end
+      end
+
+      @doc """
+      Parse the input using the defined grammar, raising `Neotomex.Error`
+      on failure.
+      """
+      @spec parse!(binary) :: any
+      def parse!(input) do
+        case parse(input) do
+          {:ok, result} ->
+            result
+          {:ok, _, _} ->
+            raise Neotomex.ParseError, message: "parse incomplete"
+          :mismatch ->
+            raise Neotomex.ParseError, error: :mismatch, message: "parse failed"
+          {:error, reason} ->
+            # TODO -- human readable reason
+            raise Neotomex.ParseError, error: reason, message: "parse error"
+        end
+      end
+
+
+      def validate do
+        Neotomex.Grammar.validate(grammar)
+      end
+
+      def validate! do
+        case validate do
+          :ok ->
+            :ok
+          otherwise ->
+            # TODO -- human readable reason
+            raise Neotomex.Grammar.ValidationError, error: otherwise
+        end
+      end
+
       if @validate do
         case Neotomex.Grammar.validate(@_neotomex_grammar) do
           :ok ->
@@ -87,25 +140,6 @@ defmodule Neotomex.ExGrammar do
         end
       end
 
-      def parse(input) do
-        case Neotomex.Grammar.parse(unquote(Macro.escape(@_neotomex_grammar)),
-                                    input) do
-          {:ok, result, ""} ->
-            {:ok, result}
-          otherwise ->
-            otherwise
-        end
-      end
-
-      def parse!(input) do
-        case Neotomex.Grammar.parse(unquote(Macro.escape(@_neotomex_grammar)),
-                                    input) do
-          {:ok, result, ""} ->
-            result
-          otherwise ->
-            throw otherwise
-        end
-      end
     end
   end
 

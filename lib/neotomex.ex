@@ -1,27 +1,17 @@
 defmodule Neotomex do
-  @non_terminals []
-
-  # `use` callback
-  @doc false
-  defmacro __using__(_opts) do
-    quote do
-      import Neotomex
-    end
-  end
-
-  @doc """
-  This macro defines a new PEG definition, with the scope of the grammar
-  limited to the provided module.
-
-  The identifier names the definition's non-terminal node, the
-  expression is matched against the provided input, and the body
-  is evaluated upon a correct match.
+  @moduledoc """
+  - `Neotomex.Grammar` provides functions for manipulating grammars.
+  - `Neotomex.ExGrammar` provides an interface for specifying grammars.
   """
-  defmacro pegdef(identifier, expression, do: body) do
-    quote do
-      unquote(IO.inspect(identifier))
-      unquote(IO.inspect(expression))
-      unquote(IO.inspect(body))
+
+  defmodule Error do
+    @moduledoc """
+    General `Neotomex` exceptions.
+    """
+    defexception [message: "neotomex error"]
+
+    def message(exception) do
+      exception.message
     end
   end
 end

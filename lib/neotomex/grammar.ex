@@ -94,6 +94,38 @@ defmodule Neotomex.Grammar do
                      definitions: %{nonterminal => expression},
                      cache: pid() | false}
 
+
+
+  defmodule ParseError do
+    @moduledoc """
+    Exception raised on parse errors.
+    """
+    defexception [error: nil, description: "parse error"]
+
+    def message(exception) do
+      exception.description
+    end
+  end
+
+
+  defmodule ValidationError do
+    @moduledoc """
+    Exception raised on validation errors.
+    """
+    defexception [error: nil, description: "validation error"]
+
+    def message(exception) do
+      exception.description <> ": " <> error_to_string(exception.error)
+    end
+
+    @doc false
+    defp error_to_string(error) do
+      # TODO handle cases
+      :io_lib.format("~p", [error]) |> Enum.join
+    end
+  end
+
+
   @doc """
   Returns an empty grammar.
   """
@@ -250,6 +282,7 @@ defmodule Neotomex.Grammar do
         {:error, {:missing, :root_definition}}
     end
   end
+
   def validate(grammar) do
     # Catch if root or defintions aren't present
     case {Dict.has_key?(grammar, :root), Dict.has_key?(grammar, :definitions)} do
@@ -263,6 +296,7 @@ defmodule Neotomex.Grammar do
 
   ## Private Functions
 
+  @doc false
   defp match({identifier, _} = expr, grammar, input) when is_atom(identifier) do
     # If no transform is provided, default it to `nil`
     match({expr, nil}, grammar, input)

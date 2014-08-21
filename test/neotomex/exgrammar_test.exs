@@ -21,6 +21,22 @@ defmodule Neotomex.ExGrammarTest do
   end
 
 
+  defmodule Invalid do
+    use Neotomex.ExGrammar
+    @validate false
+    @root true
+    define :number, "non_rule"
+  end
+
+
+  test "validation on an invalid grammar" do
+    # assert_raise Neotomex.Grammar.ValidationError,
+    #   "validation error: {error,{bad_definition,{number,{missing,{definition,non_rule}}}}}",
+    #   Invalid.validate!
+    assert {:error, _} = Invalid.validate
+  end
+
+
   defmodule Options do
     use Neotomex.ExGrammar
 
@@ -106,6 +122,7 @@ defmodule Neotomex.ExGrammarTest do
   test "a single, non-sequence match won't be called." do
     assert UncalledPruner.parse("a") == {:ok, nil}
   end
+
 
   defmodule Pruner do
     @moduledoc """
