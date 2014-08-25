@@ -94,6 +94,8 @@ defmodule Neotomex.Grammar do
                      definitions: %{nonterminal => expression},
                      cache: pid() | false}
 
+  defstruct root: nil, definitions: nil, breadcrumbs: []
+
 
 
   defmodule ParseError do
@@ -130,22 +132,8 @@ defmodule Neotomex.Grammar do
   Returns an empty grammar.
   """
   @spec new :: grammar
-  def new(root \\ false, definitions \\ %{}, cache \\ %{}) do
-    %{root: root, definitions: definitions, cache: cache}
-  end
-
-
-  @doc """
-  Add a rule to the grammar.
-
-  Set the definition as the root of the grammar if not yet set.
-  """
-  @spec add_rule(grammar, definition) :: grammar
-  def add_rule(%{:root => false} = grammar, {ident, _} = definition) do
-    add_rule(%{grammar | :root => ident}, definition)
-  end
-  def add_rule(%{:definitions => definitions} = grammar, {identity, expr_trans}) do
-    %{grammar | :definitions => Map.put(definitions, identity, expr_trans)}
+  def new(root \\ nil, definitions \\ %{}) do
+    %Neotomex.Grammar{root: root, definitions: definitions}
   end
 
 
@@ -163,7 +151,8 @@ defmodule Neotomex.Grammar do
       {:ok, 100, ""}
 
   """
-  @spec parse(grammar, binary) :: {:ok, any, binary} | :mismatch | {:error, term}
+  @spec parse(%Neotomex.Grammar{}, binary) :: {:ok, any, binary}
+                                            | :mismatch | {:error, term}
   def parse(grammar, input) when is_binary(input) do
     case match(grammar, input) do
       {:ok, match, rest} ->
@@ -179,9 +168,11 @@ defmodule Neotomex.Grammar do
 
   NB: Not tail call optimized. Possible?
   """
-  @spec match(grammar, binary) :: {:ok, {expression, transform}, binary}
-                                | :mismatch | {:error, term}
-  def match(%{:root => root, :definitions => definitions} = grammar, input)
+  @spec match(%Neotomex.Grammar{}, binary) :: {:ok, {expression, transform}, binary}
+                                            | :mismatch | {:error, term}
+  def match(%Neotomex.Grammar{:root => root,
+                              :definitions => definitions} = grammar,
+            input)
       when is_binary(input) do
     match(definitions[root], grammar, input)
   end
@@ -250,31 +241,30 @@ defmodule Neotomex.Grammar do
 
   More complex examples can be found in `test/neotomex/grammar_test.exs` [todo]
 
-      iex> validate(%{})
+      iex> validate(%Neotomex.Grammar{})
       {:error, {:missing, :root}}
-      iex> validate(%{:root => :root})
+      iex> validate(%Neotomex.Grammar{:root => :root})
       {:error, {:missing, :definitions}}
-      iex> validate(%{:root => :root, :definitions => %{}})
+      iex> validate(%Neotomex.Grammar{:root => :root, :definitions => %{}})
       {:error, {:missing, :root_definition}}
-      iex> validate(%{:root => :root,
-      ...>            :definitions => %{:root => {:nonterminal, :reference}}})
-      {:error, {:bad_definition, {:root, {:missing, {:definition, :reference}}}}}
-      iex> validate(%{:root => :root,
-      ...>            :definitions => %{:root => {:bad_type, :nonsense}}})
+      iex> validate(%Neotomex.Grammar{root: :root,
+      ...>                            definitions: %{root: {:bad_type, :nonsense}}})
       {:error, {:bad_definition, {:root, {:bad_expr_type, :bad_type}}}}
-      iex> validate(%{:root => :root, :definitions => %{:root => :the_bad_expr}})
+      iex> validate(%Neotomex.Grammar{:root => :root,
+      ...>                            :definitions => %{:root => :the_bad_expr}})
       {:error, {:bad_definition, {:root, {:bad_expr, :the_bad_expr}}}}
-      iex> validate(%{:root => :root,
-      ...>            :definitions => %{:root => {:terminal, ?a}}})
+      iex> validate(%Neotomex.Grammar{:root => :root,
+      ...>                            :definitions => %{:root => {:terminal, ?a}}})
       :ok
   """
-  @spec validate(grammar) :: :ok |
+  @spec validate(%Neotomex.Grammar{}) :: :ok |
     {:error, {:missing, :root
                       | :definitions
                       | :root_definitions
                       | {:definition, atom}}}
-  def validate(%{:root => root, :definitions => definitions} = grammar) when
-      root != nil and definitions != nil do
+  def validate(%Neotomex.Grammar{:root => root,
+                                 :definitions => definitions} = grammar)
+      when root != nil and definitions != nil do
     case Dict.has_key?(definitions, root) do
       true ->
         validate(grammar, Dict.to_list(definitions))
@@ -283,16 +273,12 @@ defmodule Neotomex.Grammar do
     end
   end
 
-  def validate(grammar) do
-    # Catch if root or defintions aren't present
-    case {Dict.has_key?(grammar, :root), Dict.has_key?(grammar, :definitions)} do
-      {false, _} ->
-        {:error, {:missing, :root}}
-      {_, false} ->
-        {:error, {:missing, :definitions}}
-    end
+  def validate(%Neotomex.Grammar{root: nil}) do
+    {:error, {:missing, :root}}
   end
-
+  def validate(%Neotomex.Grammar{definitions: nil}) do
+    {:error, {:missing, :definitions}}
+  end
 
   ## Private Functions
 
@@ -342,7 +328,7 @@ defmodule Neotomex.Grammar do
   end
 
   defp match({{:nonterminal, nonterminal}, _} = expr_trans,
-             %{:definitions => definitions} = grammar, input) do
+             %Neotomex.Grammar{:definitions => definitions} = grammar, input) do
     case match(definitions[nonterminal], grammar, input) do
       {:ok, match, rest} ->
         {:ok, {expr_trans, match}, rest}

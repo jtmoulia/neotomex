@@ -115,12 +115,15 @@ defmodule Neotomex.GrammarTest do
   end
 
   test "validate" do
-    assert validate(%{}) == {:error, {:missing, :root}}
-    assert validate(%{:root => :root}) == {:error, {:missing, :definitions}}
-    assert validate(%{:root => :root,
-                      :definitions => %{:root => {:terminal, ?a}}}) == :ok
-    assert validate(%{:root => :root,
-                      :definitions => %{:root => {{:terminal, ?a}, nil}}}) == :ok
+    assert validate(%Neotomex.Grammar{}) == {:error, {:missing, :root}}
+    assert validate(%Neotomex.Grammar{:root => :root}) ==
+      {:error, {:missing, :definitions}}
+    assert validate(%Neotomex.Grammar{:root => :root,
+                                      :definitions =>
+                                      %{:root => {:terminal, ?a}}}) == :ok
+    assert validate(%Neotomex.Grammar{:root => :root,
+                                      :definitions =>
+                                      %{:root => {{:terminal, ?a}, nil}}}) == :ok
   end
 
   test "transform" do
