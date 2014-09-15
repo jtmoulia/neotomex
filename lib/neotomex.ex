@@ -14,4 +14,12 @@ defmodule Neotomex do
       exception.message
     end
   end
+
+  @doc """
+  Trace the Neotomex.Grammar match calls using `dbg`.
+  """
+  def trace do
+    Dbg.trace(self, :call)
+    Dbg.call(&Neotomex.Grammar.match/2)
+  end
 end
