@@ -18,8 +18,20 @@ defmodule Neotomex do
   @doc """
   Trace the Neotomex.Grammar match calls using `dbg`.
   """
+  @spec trace :: :ok
   def trace do
     Dbg.trace(self, :call)
-    Dbg.call(&Neotomex.Grammar.match/2)
+    for fun <- [&Neotomex.Grammar.match/2,
+                &Neotomex.Grammar.match/3] do
+      Dbg.call(fun)
+    end
+    :ok
+  end
+
+  @doc """
+  Stop any active traces.
+  """
+  def clear_trace do
+    Dbg.clear
   end
 end

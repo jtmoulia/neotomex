@@ -4,6 +4,11 @@ defmodule Neotomex.GrammarTest do
                                   transform_match: 1, validate: 1]
   doctest Neotomex.Grammar
 
+  setup context do
+    if context[:trace], do: Neotomex.trace
+    {:ok, []}
+  end
+
   test "parse" do
       grammar = new(:root, %{root: {:terminal, ~r/^[0-9]+/}})
       assert parse(grammar, "1") == {:ok, "1", ""}
