@@ -23,7 +23,7 @@ defmodule Neotomex do
     Dbg.trace(self, :call)
     for fun <- [&Neotomex.Grammar.match/2,
                 &Neotomex.Grammar.match/3] do
-      Dbg.call(fun)
+      Dbg.local_call(fun)
     end
     :ok
   end
