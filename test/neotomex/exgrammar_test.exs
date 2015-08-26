@@ -137,4 +137,19 @@ defmodule Neotomex.ExGrammarTest do
   test "pruning out expressions" do
     assert Pruner.parse("abc") == {:ok, "b"}
   end
+
+
+  defmodule UnicodeEscaper do
+    @moduledoc """
+    For testing escaped unicode expressions. Simply having a unicode
+    definition checks if the neotomex PEG grammar is matching correctly.
+
+    See [#11](https://github.com/jtmoulia/neotomex/issues/11)
+    """
+    use Neotomex.ExGrammar
+
+    @root true
+    define :unicode, "[\x{000C}\x{0020}\x{200A}]"
+  end
+
 end

@@ -202,7 +202,7 @@ defmodule Neotomex.PEG do
          {:transform,
           fn [id, _]               -> {:nonterminal, id}
              [:OPEN, expr, :CLOSE] -> expr
-             :DOT                  -> {:terminal, ~r/^./}
+             :DOT                  -> {:terminal, ~r/^./u}
              x                     -> x
           end}},
 
@@ -215,7 +215,7 @@ defmodule Neotomex.PEG do
           fn [ident_start, ident_cont, :spacing] ->
             Enum.join([ident_start | ident_cont]) |> String.to_atom
           end}},
-      :ident_start => {:terminal, ~r/^[a-zA-Z_]/},
+      :ident_start => {:terminal, ~r/^[a-zA-Z_]/u},
       :ident_cont => {:priority, [{:nonterminal, :ident_start},
                                   {:terminal, ~r/^[0-9]/}]},
       :literal =>
@@ -263,9 +263,9 @@ defmodule Neotomex.PEG do
       # TODO: Fix single character match
       :char =>
         {{:priority, [{:sequence, [{:terminal, "\\"},
-                                   {:terminal, ~r/^[nrts\[\]\\'"]/}]},
+                                   {:terminal, ~r/^[nrts\[\]\\'"]/u}]},
                       {:sequence, [{:not, {:terminal, "\\"}},
-                                   {:terminal, ~r/^./}]}]},
+                                   {:terminal, ~r/^./u}]}]},
          {:transform,
           fn [nil, char] -> char
              ["\\", "n"] -> "\n"
@@ -309,7 +309,7 @@ defmodule Neotomex.PEG do
       :comment => {:sequence, [{:terminal, ?#},
                                {:zero_or_more,
                                 {:sequence, [{:not, {:nonterminal, :EOL}},
-                                             {:terminal, ~r/./}]}},
+                                             {:terminal, ~r/./u}]}},
                                {:nonterminal, :EOL}]},
       :space => {{:priority, [{:terminal, " "},
                               {:terminal, "\t"},
@@ -319,7 +319,7 @@ defmodule Neotomex.PEG do
                             {:terminal, "\n"},
                             {:terminal, "\r"}]},
                {:transform, fn _ -> :EOL end}},
-      :EOF => {{:not, {:terminal, ~r/./}},
+      :EOF => {{:not, {:terminal, ~r/./u}},
                {:transform, fn _ -> :EOF end}}
      }
   end
