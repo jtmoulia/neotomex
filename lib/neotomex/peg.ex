@@ -148,7 +148,7 @@ defmodule Neotomex.PEG do
                                         {:nonterminal, :sequence}]}}]},
          {:transform,
           fn [seq, []] -> seq
-             [seq, rest] -> {:priority, [seq | for [:SLASH, p] <- rest, do: p]}
+             [seq, rest] -> {:priority, [seq | (for [:SLASH, p] <- rest, do: p)]}
           end}},
 
       :sequence =>
@@ -244,7 +244,7 @@ defmodule Neotomex.PEG do
                       {:nonterminal, :spacing}]},
          {:transform,
           fn [?[, ranges, ?], :spacing] ->
-                 {:ok, regex} = Enum.join(["^[" | for [nil, r] <- ranges, do: r]
+                 {:ok, regex} = Enum.join(["^[" | (for [nil, r] <- ranges, do: r)]
                                           ++ ["]"])
                    |> Regex.compile
                  {:terminal, regex}
