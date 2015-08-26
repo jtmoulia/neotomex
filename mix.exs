@@ -7,7 +7,7 @@ defmodule Neotomex.Mixfile do
   def project do
     [app: :neotomex,
      version: "0.1.4",
-     elixir: "~> 1.0.0",
+     elixir: "~> 1.0",
      name: "Neotomex",
      source_url: @github,
      deps: deps,
@@ -29,7 +29,7 @@ defmodule Neotomex.Mixfile do
   defp deps do
     [{:dbg, "~> 1.0.0", only: :dev},
      {:earmark, "~> 0.1", only: :dev},
-     {:ex_doc, "~> 0.5", only: :dev}]
+     {:ex_doc, "~> 0.8", only: :dev}]
   end
 
   defp description do
