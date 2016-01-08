@@ -15,7 +15,7 @@ defmodule JSON do
       "<'{'> <space?> pair (<space?> <','> <space?> pair)* <space?> <'}'> / <'{'> <space?> <'}'>" do
     [] -> HashDict.new()
     [head, others] ->
-      Enum.into([head | for [pair] <- others, do: pair], HashDict.new)
+      Enum.into([head | (for [pair] <- others, do: pair)], HashDict.new)
   end
 
   define :pair, "<space?> string <space?> <':'> <space?> json_value <space?>" do
@@ -29,7 +29,7 @@ defmodule JSON do
 
   define :array, "<'['> <space?> json_value (<space?> <','> <space?> json_value)* <space?> <']'> / <'['> space? <']'>" do
     [] -> []
-    [head, rest] -> [head | for [val] <- rest, do: val]
+    [head, rest] -> [head | (for [val] <- rest, do: val)]
   end
 
 
