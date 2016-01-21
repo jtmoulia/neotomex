@@ -17,6 +17,8 @@ defmodule Neotomex.PEGTest do
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- . .")
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- <.>")
     assert {:ok, _, ""} = Neotomex.PEG.match("A <- <.> . <.>")
+    assert {:ok, _, ""} = Neotomex.PEG.match("A <- [\\n-\\r]")
+    assert {:ok, _, ""} = Neotomex.PEG.match("A <- [\\x199-\\x277]")
   end
 
   test "parsing PEG grammars using the Neotomex PEG metagrammar" do
@@ -68,5 +70,21 @@ defmodule Neotomex.PEGTest do
     assert Neotomex.Grammar.parse(grammar, "")   == :mismatch
     assert Neotomex.Grammar.parse(grammar, "a")  == {:ok, ["a"], ""}
     assert Neotomex.Grammar.parse(grammar, "aa") == {:ok, ["a", "a"], ""}
+  end
+
+  test "escaped characters" do
+    assert {:ok, grammar} = Neotomex.PEG.parse("a <- [\\r\\n]")
+    assert Neotomex.Grammar.validate(grammar) == :ok
+    assert Neotomex.Grammar.parse(grammar, "")   == :mismatch
+    assert Neotomex.Grammar.parse(grammar, "f")   == :mismatch
+    assert Neotomex.Grammar.parse(grammar, "\n")   == {:ok, "\n", ""}
+    assert Neotomex.Grammar.parse(grammar, "\r")   == {:ok, "\r", ""}
+
+    assert {:ok, grammar} = Neotomex.PEG.parse("a <- [\\xc8-\\xd8]")
+    assert Neotomex.Grammar.validate(grammar) == :ok
+    assert Neotomex.Grammar.parse(grammar, "\xc8")   == {:ok, "\xc8", ""}
+    assert Neotomex.Grammar.parse(grammar, "\xd8")   == {:ok, "\xd8", ""}
+    assert Neotomex.Grammar.parse(grammar, "\xd4")   == {:ok, "\xd4", ""}
+    assert Neotomex.Grammar.parse(grammar, "\xd9")   == :mismatch
   end
 end

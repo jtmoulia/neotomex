@@ -246,7 +246,7 @@ defmodule Neotomex.PEG do
           fn [?[, ranges, ?], :spacing] ->
                  {:ok, regex} = Enum.join(["^[" | (for [nil, r] <- ranges, do: r)]
                                           ++ ["]"])
-                   |> Regex.compile
+                   |> Regex.compile([:unicode])
                  {:terminal, regex}
                end}},
 
@@ -263,21 +263,29 @@ defmodule Neotomex.PEG do
       # TODO: Fix single character match
       :char =>
         {{:priority, [{:sequence, [{:terminal, "\\"},
-                                   {:terminal, ~r/^[nrts\[\]\\'"]/u}]},
+                                   {:nonterminal, :escaped_char}]},
                       {:sequence, [{:not, {:terminal, "\\"}},
                                    {:terminal, ~r/^./u}]}]},
          {:transform,
-          fn [nil, char] -> char
-             ["\\", "n"] -> "\n"
-             ["\\", "r"] -> "\r"
-             ["\\", "t"] -> "\t"
-             ["\\", "s"] -> "\t"
-             ["\\", "["] -> "["
-             ["\\", "]"] -> "]"
-             ["\\", "\\"] -> "\\"
-             ["\\", "\""] -> "\""
+          fn [_, char] -> char
           end
         }},
+
+      :escaped_char =>
+        {{:priority, [{:terminal, ~r/^[nrts\[\]\\'"]/},
+                      {:terminal, ~r/^x[0-9a-fA-F]{1,6}/}]},
+         {:transform,
+          fn "r" -> "\r"
+             "n" -> "\n"
+             "t" -> "\t"
+             "s" -> "\t"
+             "[" -> "["
+             "]" -> "]"
+             "\\" -> "\\"
+             "\"" -> "\""
+             "x" <> escaped -> "\\x#{escaped}"
+          end
+         }},
 
       :LEFTARROW => {{:sequence, [{:terminal, "<-"}, {:nonterminal, :spacing}]},
                      {:transform, fn _ -> :LEFTARROW end}},
