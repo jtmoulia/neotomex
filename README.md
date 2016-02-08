@@ -35,6 +35,9 @@ end
 42 = Number.parse! "42"
 ```
 
+See the `/examples` directory for other examples, including a
+[json grammar](https://github.com/jtmoulia/neotomex/blob/master/examples/json.exs).
+
 
 ## Learning More
 
@@ -52,7 +55,6 @@ Look in `examples/` for existing usage.
 ## Roadmap
 
 - Packrat parsing
-- Add more examples. JSON? IMAP? Cooking Recipes?
 - Match labels a la neotoma (e.g. a:match)
 
 
