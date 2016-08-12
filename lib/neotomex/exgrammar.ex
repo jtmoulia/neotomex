@@ -107,12 +107,12 @@ defmodule Neotomex.ExGrammar do
           {:ok, result} ->
             result
           {:ok, _, _} ->
-            raise Neotomex.ParseError, message: "parse incomplete"
+            raise Neotomex.Grammar.ParseError, message: "parse incomplete"
           :mismatch ->
-            raise Neotomex.ParseError, error: :mismatch, message: "parse failed"
+            raise Neotomex.Grammar.ParseError, error: :mismatch, message: "parse failed"
           {:error, reason} ->
             # TODO -- human readable reason
-            raise Neotomex.ParseError, error: reason, message: "parse error"
+            raise Neotomex.Grammar.ParseError, error: reason, message: "parse error"
         end
       end
 
