@@ -6,7 +6,7 @@ defmodule Neotomex.Mixfile do
 
   def project do
     [app: :neotomex,
-     version: "0.1.5",
+     version: "0.1.6",
      elixir: "~> 1.0",
      name: "Neotomex",
      source_url: @github,
