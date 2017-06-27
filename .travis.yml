@@ -1,1 +1,8 @@
 language: elixir
+elixir:
+  - 1.0.5
+  - 1.4.5
+branches:
+  only:
+    - master
+    - /^travis-.*$/
