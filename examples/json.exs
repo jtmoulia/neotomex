@@ -41,7 +41,8 @@ defmodule JSON do
              else
                iolist_to_integer(int)
              end
-      if exp, do: :math.pow(base, exp), else: base
+      base = if exp, do: base * :math.pow(10, exp), else: base
+      if frac, do: base, else: round(base)
   end
 
   define :int, "'-'? (non_zero_digit digit+) / digit" do
@@ -85,6 +86,9 @@ defmodule JSON do
     case input |> String.strip |> parse do
       {:ok, result} ->
         IO.inspect result
+      {:ok, result, remainder} ->
+        IO.inspect result
+        IO.puts "remainder: #{remainder}"
       :mismatch ->
         IO.puts "You sure you got that right?"
     end
@@ -96,8 +100,8 @@ defmodule JSON do
   """
   def test do
     {:ok, 1} = parse("1")
-    # TODO should this return an integer?
-    {:ok, 27.0} = parse("3e3")
+    {:ok, 3000} = parse("3e3")
+    {:ok, 3.0e3} = parse("3.0e3")
     {:ok, 3.3} = parse("3.3")
 
     {:ok, [1]} = parse("[1]")
@@ -108,6 +112,6 @@ end
 
 JSON.test
 
-IO.puts "A JSON Parser. Because all the cool kids are doing it."
-IO.puts "======================================================\n"
+IO.puts "A JSON Parser. See this file for the implementation."
+IO.puts "====================================================\n"
 JSON.repl
