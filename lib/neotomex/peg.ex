@@ -246,7 +246,7 @@ defmodule Neotomex.PEG do
           fn [?[, ranges, ?], :spacing] ->
                  {:ok, regex} = Enum.join(["^[" | (for [nil, r] <- ranges, do: r)]
                                           ++ ["]"])
-                   |> Regex.compile([:unicode])
+                   |> Regex.compile()
                  {:terminal, regex}
                end}},
 
