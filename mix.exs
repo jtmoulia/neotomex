@@ -7,7 +7,7 @@ defmodule Neotomex.Mixfile do
   def project do
     [app: :neotomex,
      version: "0.1.7",
-     elixir: "~> 1.0",
+     elixir: "~> 1.4",
      name: "Neotomex",
      source_url: @github,
      deps: deps(),
@@ -39,7 +39,7 @@ defmodule Neotomex.Mixfile do
   end
 
   defp package do
-    [contributors: ["Thomas Moulia"],
+    [maintainers: ["Thomas Moulia"],
      licenses: ["BSD 3-Clause License"],
      links: %{github: @github}]
   end
