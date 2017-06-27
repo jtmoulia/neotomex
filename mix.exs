@@ -27,9 +27,9 @@ defmodule Neotomex.Mixfile do
   end
 
   defp deps do
-    [{:dbg, "~> 1.0.0", only: :dev},
-     {:earmark, "~> 0.1", only: :dev},
-     {:ex_doc, "~> 0.8", only: :dev}]
+    [{:dbg, "~> 1.0", only: :dev},
+     {:earmark, "~> 1.2", only: :dev},
+     {:ex_doc, "~> 0.16", only: :dev}]
   end
 
   defp description do
