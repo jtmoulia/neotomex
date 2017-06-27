@@ -149,7 +149,7 @@ defmodule Neotomex.ExGrammarTest do
     use Neotomex.ExGrammar
 
     @root true
-    define :unicode, "[\x{000C}\x{0020}\x{200A}]"
+    define :unicode, "[\u000c\u0020\u200a]"
   end
 
 end

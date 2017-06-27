@@ -13,9 +13,9 @@ defmodule JSON do
 
   define :object,
       "<'{'> <space?> pair (<space?> <','> <space?> pair)* <space?> <'}'> / <'{'> <space?> <'}'>" do
-    [] -> HashDict.new()
+    [] -> Map.new()
     [head, others] ->
-      Enum.into([head | (for [pair] <- others, do: pair)], HashDict.new)
+      Enum.into([head | (for [pair] <- others, do: pair)], Map.new())
   end
 
   define :pair, "<space?> string <space?> <':'> <space?> json_value <space?>" do
@@ -92,7 +92,7 @@ defmodule JSON do
       :mismatch ->
         IO.puts "You sure you got that right?"
     end
-    repl
+    repl()
   end
 
   @doc """
@@ -105,7 +105,7 @@ defmodule JSON do
     {:ok, 3.3} = parse("3.3")
 
     {:ok, [1]} = parse("[1]")
-    dict = ["a": 1] |> Enum.into(HashDict.new)
+    dict = ["a": 1] |> Enum.into(Map.new)
     {:ok, ^dict} = parse("{\"a\": 1}")
   end
 end

@@ -10,9 +10,9 @@ defmodule Neotomex.Mixfile do
      elixir: "~> 1.0",
      name: "Neotomex",
      source_url: @github,
-     deps: deps,
-     description: description,
-     package: package]
+     deps: deps(),
+     description: description(),
+     package: package()]
   end
 
   def application do

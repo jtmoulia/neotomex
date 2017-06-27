@@ -89,7 +89,7 @@ defmodule Neotomex.ExGrammar do
       """
       @spec parse(binary) :: {:ok, any} | :mismatch | {:error, term}
       def parse(input) do
-        case Neotomex.Grammar.parse(grammar, input) do
+        case Neotomex.Grammar.parse(grammar(), input) do
           {:ok, result, ""} ->
             {:ok, result}
           otherwise ->
@@ -118,11 +118,11 @@ defmodule Neotomex.ExGrammar do
 
 
       def validate do
-        Neotomex.Grammar.validate(grammar)
+        Neotomex.Grammar.validate(grammar())
       end
 
       def validate! do
-        case validate do
+        case validate() do
           :ok ->
             :ok
           otherwise ->
@@ -163,9 +163,9 @@ defmodule Neotomex.ExGrammar do
 
       # Add the new definition with transform, when applicable
       transform = if branches != [], do: {:transform, {__ENV__.module, def_name}}
-      @_neotomex_definitions Dict.put(@_neotomex_definitions,
-                                      identifier,
-                                      {neo_expr, transform})
+      @_neotomex_definitions Map.put(@_neotomex_definitions,
+                                     identifier,
+                                     {neo_expr, transform})
       for {{args, guards}, body} <- branches do
         def unquote(def_name)(unquote(args)) when unquote(guards) do
           unquote(body)

@@ -67,7 +67,7 @@ defmodule Neotomex.PEG do
   """
   @spec parse(binary()) :: {:ok, Neotomex.Grammar.grammar()}
   def parse(input) do
-    unwrap_parse(grammar, input)
+    unwrap_parse(grammar(), input)
   end
 
 
@@ -78,7 +78,7 @@ defmodule Neotomex.PEG do
   """
   @spec match(binary()) :: {:ok, Neotomex.Grammar.match(), binary()}
   def match(input) do
-    Neotomex.Grammar.match(grammar, input)
+    Neotomex.Grammar.match(grammar(), input)
   end
 
 
@@ -86,7 +86,7 @@ defmodule Neotomex.PEG do
   Parse the input as a PEG expression rather than a full PEG grammar.
   """
   def parse_expression(input) do
-    unwrap_parse(expression_grammar, input)
+    unwrap_parse(expression_grammar(), input)
   end
 
 
@@ -95,11 +95,11 @@ defmodule Neotomex.PEG do
   """
   @spec grammar :: Neotomex.Grammar.grammar()
   def grammar do
-    Neotomex.Grammar.new(:grammar, grammar_definitions)
+    Neotomex.Grammar.new(:grammar, grammar_definitions())
   end
 
   def expression_grammar do
-    Neotomex.Grammar.new(:expression, expression_definitions)
+    Neotomex.Grammar.new(:expression, expression_definitions())
   end
 
 
@@ -135,7 +135,7 @@ defmodule Neotomex.PEG do
                       {:nonterminal, :LEFTARROW},
                       {:nonterminal, :expression}]},
          {:transform, fn [id, _, expr] -> {id, expr} end}}}
-    Dict.merge(grammar_definitions, expression_definitions)
+    Map.merge(grammar_definitions, expression_definitions())
   end
 
   # Definitions for parsing a PEG expression

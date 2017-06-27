@@ -265,9 +265,9 @@ defmodule Neotomex.Grammar do
   def validate(%Neotomex.Grammar{:root => root,
                                  :definitions => definitions} = grammar)
       when root != nil and definitions != nil do
-    case Dict.has_key?(definitions, root) do
+    case Map.has_key?(definitions, root) do
       true ->
-        validate(grammar, Dict.to_list(definitions))
+        validate(grammar, Map.to_list(definitions))
       false ->
         {:error, {:missing, :root_definition}}
     end
@@ -494,7 +494,7 @@ defmodule Neotomex.Grammar do
   @doc false
   defp validate_expr(%{:definitions => definitions}, {:nonterminal, id}) do
     # check that the referenced terminal exists in the grammar
-    case Dict.has_key?(definitions, id) do
+    case Map.has_key?(definitions, id) do
       true ->
         :ok
       false ->

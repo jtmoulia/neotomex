@@ -20,9 +20,8 @@ defmodule Neotomex do
   """
   @spec trace :: :ok
   def trace do
-    Dbg.trace(self, :call)
-    for fun <- [&Neotomex.Grammar.match/2,
-                &Neotomex.Grammar.match/3] do
+    Dbg.trace(self(), :call)
+    for fun <- [&Neotomex.Grammar.match/2] do
       Dbg.local_call(fun)
     end
     :ok
