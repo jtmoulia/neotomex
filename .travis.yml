@@ -1,15 +1,1 @@
-language: erlang
-sudo: false
-otp_release:
-- 18.0
-- 17.5
-- 17.4
-- 17.3
-- 17.1
-- 17.0
-before_install:
-- git clone https://github.com/elixir-lang/elixir -b v1.0.5
-- make -C elixir
-- 'PATH="`pwd`/elixir/bin:$PATH" mix local.hex --force'
-before_script: "export PATH=`pwd`/elixir/bin:$PATH"
-script: mix test
+language: elixir
