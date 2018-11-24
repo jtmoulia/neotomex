@@ -138,6 +138,23 @@ defmodule Neotomex.ExGrammarTest do
     assert Pruner.parse("abc") == {:ok, "b"}
   end
 
+  defmodule InsensitiveMatcher do
+    @moduledoc """
+    For testing list pruning
+    """
+    use Neotomex.ExGrammar
+
+    @root true
+    define :char, "( foo )~ <' '> bar"
+    define :foo, "'FOO'"
+    define :bar, "'BAR'"
+  end
+
+  test "case insensitive expressions" do
+    assert InsensitiveMatcher.parse("FoO BAR") == {:ok, ["FoO", "BAR"]}
+    assert InsensitiveMatcher.parse("fOo bar") == :mismatch
+  end
+
 
   defmodule UnicodeEscaper do
     @moduledoc """
