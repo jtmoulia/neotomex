@@ -327,6 +327,11 @@ defmodule Neotomex.Grammar do
         end
       nil ->
         :mismatch
+      ["\r"] ->
+        # String.split_at can't split "\r\n"  into  {"\r","\n"}
+        # Using Regex.split to replace it.
+        ["", rest] = Regex.split(~r/^\r/, input)
+        {:ok, {expr_trans, "\r"}, rest}
       [match] ->
         # Two parts are necessary since the first is being trimmed away
         {^match, rest} = String.split_at(input, String.length(match))
