@@ -15,6 +15,12 @@ defmodule Neotomex.PEG do
     indicated by bracketing an expression with angle brackets,
     i.e. `'<' expression '>'`
 
+  - ** Case Insensitive Suffix** allows for matching
+    setting terminal expressions contained within to 
+    match without paying attention to case. Use a ~ character
+    to do so. 
+    i.e. `'wombat'~` will match, "WomBat"
+
 """
 
   # Specification of PEG, in PEG:
@@ -182,12 +188,14 @@ defmodule Neotomex.PEG do
         {{:sequence, [{:nonterminal, :primary},
                       {:zero_or_one, {:priority, [{:nonterminal, :QUESTION},
                                                   {:nonterminal, :STAR},
-                                                  {:nonterminal, :PLUS}]}}]},
+                                                  {:nonterminal, :PLUS},
+                                                  {:nonterminal, :TILDE}]}}]},
          {:transform,
           fn [primary, nil]       -> primary
              [primary, :QUESTION] -> {:zero_or_one,  primary}
              [primary, :STAR]     -> {:zero_or_more, primary}
              [primary, :PLUS]     -> {:one_or_more,  primary}
+             [primary, :TILDE]    -> {:insensitive,  primary}
           end}},
 
       :primary =>
@@ -301,6 +309,8 @@ defmodule Neotomex.PEG do
                      {:transform, fn _ -> :STAR end}},
       :PLUS      => {{:sequence, [{:terminal, ?+}, {:nonterminal, :spacing}]},
                      {:transform, fn _ -> :PLUS end}},
+      :TILDE         =>  {{:sequence, [{:terminal, ?~}, {:nonterminal, :spacing}]},
+                     {:transform, fn _ -> :TILDE end}},
       :OPEN      => {{:sequence, [{:terminal, ?(}, {:nonterminal, :spacing}]},
                      {:transform, fn _ -> :OPEN end}},
       :CLOSE     => {{:sequence, [{:terminal, ?)}, {:nonterminal, :spacing}]},

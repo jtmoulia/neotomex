@@ -78,6 +78,7 @@ defmodule Neotomex.Grammar do
                     | {:and, expression}
                     | {:not, expression}
                     | {:prune, expression}
+                    | {:insensitive, expression}
 
   @type definition :: {nonterminal, expression}
   @type transform :: {:transform, ((term) -> {:ok, term})}
@@ -94,7 +95,7 @@ defmodule Neotomex.Grammar do
                      definitions: %{nonterminal => expression},
                      cache: pid() | false}
 
-  defstruct root: nil, definitions: nil, breadcrumbs: []
+  defstruct root: nil, definitions: nil, breadcrumbs: [], insensitive: false
 
 
 
@@ -299,11 +300,17 @@ defmodule Neotomex.Grammar do
   defp match({{:terminal, char}, _}, _, _) when is_integer(char) do
     :mismatch
   end
-  defp match({{:terminal, terminal}, _} = expr_trans, _, input)
+  defp match({{:terminal, terminal}, _} = expr_trans, g, input)
       when is_binary(terminal) do
     case String.split_at(input, String.length(terminal)) do
       {^terminal, rest} ->
         {:ok, {expr_trans, terminal}, rest}
+      {inexact, rest} ->
+        if g.insensitive and (String.downcase(inexact) == String.downcase(terminal)) do
+          {:ok, {expr_trans, inexact}, rest}
+        else
+          :mismatch
+        end
       {_, _} ->
         :mismatch
     end
@@ -335,6 +342,11 @@ defmodule Neotomex.Grammar do
       otherwise ->
         otherwise
     end
+  end
+
+  defp match({{:insensitive, inner}, _} = expr_trans,
+             %Neotomex.Grammar{:definitions => definitions} = grammar, input) do
+    match(inner, %{grammar | insensitive: true}, input)
   end
 
   defp match({{:sequence, _}, _} = expr_trans, grammar, input) do
@@ -516,7 +528,8 @@ defmodule Neotomex.Grammar do
         or wrap_expr_type == :one_or_more
         or wrap_expr_type == :not
         or wrap_expr_type == :and
-        or wrap_expr_type == :prune do
+        or wrap_expr_type == :prune
+        or wrap_expr_type == :insensitive do
     # handle a expr which is wraps a single expression
     if is_tuple(expr) do
       validate_expr(grammar, expr)
