@@ -311,8 +311,6 @@ defmodule Neotomex.Grammar do
         else
           :mismatch
         end
-      {_, _} ->
-        :mismatch
     end
   end
   defp match({{:terminal, terminal}, _} = expr_trans, _, input) do
@@ -349,8 +347,8 @@ defmodule Neotomex.Grammar do
     end
   end
 
-  defp match({{:insensitive, inner}, _} = expr_trans,
-             %Neotomex.Grammar{:definitions => definitions} = grammar, input) do
+  defp match({{:insensitive, inner}, _} = _,
+             %Neotomex.Grammar{:definitions => _} = grammar, input) do
     match(inner, %{grammar | insensitive: true}, input)
   end
 
